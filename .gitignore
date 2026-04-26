@@ -1,0 +1,105 @@
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.pub
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log
+*.log.*
+nohup.out
+
+# Test Documents
+test_documents/
+*.pdf
+*.PDF
+
+# Models
+models/
+.ollama/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+.cache/
+*.cache
+
+# OS
+Thumbs.db
+.AppleDouble
+.LSOverride
+._*
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Streamlit
+.streamlit/secrets.toml
+
+# SSH Keys
+.ssh/
+do_atlas
+
+# ATLAS Infrastructure Keys
+.ssh/
+
+# Claude Code internal
+.claude/
+
+# Frontend build and deps
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+
+# Uploads temporales de PDFs del pipeline
+atlas_uploads/

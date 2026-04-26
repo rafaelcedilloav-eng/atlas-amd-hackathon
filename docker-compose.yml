@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  atlas-api:
+    build: .
+    container_name: atlas-api
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - TESSERACT_CMD=/usr/bin/tesseract
+      - POPPLER_PATH=/usr/bin
+    volumes:
+      - /tmp/atlas_uploads:/tmp/atlas_uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  atlas-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: atlas-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=https://api.atlas-hackathon.com
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
