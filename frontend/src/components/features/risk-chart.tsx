@@ -67,7 +67,6 @@ export function RiskChart({ distribution }: RiskChartProps) {
             color: "white",
             fontSize: "12px",
           }}
-          formatter={(value: number, name: string) => [value, name]}
         />
         <Legend
           iconType="circle"
