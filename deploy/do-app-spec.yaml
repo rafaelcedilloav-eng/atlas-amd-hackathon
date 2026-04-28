@@ -1,0 +1,141 @@
+name: atlas-amd
+region: atl
+features:
+- buildpack-stack=ubuntu-22
+ingress:
+  rules:
+  # API routes → backend (orden importa: más específico primero)
+  - component:
+      name: atlas-amd-hackathon
+    match:
+      path:
+        prefix: /upload
+  - component:
+      name: atlas-amd-hackathon
+    match:
+      path:
+        prefix: /analyze
+  - component:
+      name: atlas-amd-hackathon
+    match:
+      path:
+        prefix: /result
+  - component:
+      name: atlas-amd-hackathon
+    match:
+      path:
+        prefix: /audit-list
+  - component:
+      name: atlas-amd-hackathon
+    match:
+      path:
+        prefix: /stats
+  - component:
+      name: atlas-amd-hackathon
+    match:
+      path:
+        prefix: /human_decision
+  - component:
+      name: atlas-amd-hackathon
+    match:
+      path:
+        prefix: /docs
+  - component:
+      name: atlas-amd-hackathon
+    match:
+      path:
+        prefix: /openapi.json
+  # Todo lo demás → frontend Next.js
+  - component:
+      name: atlas-frontend
+    match:
+      path:
+        prefix: /
+services:
+- name: atlas-amd-hackathon
+  github:
+    repo: rafaelcedilloav-eng/atlas-amd-hackathon
+    branch: main
+    deploy_on_push: true
+  source_dir: /
+  dockerfile_path: /Dockerfile
+  http_port: 8080
+  instance_count: 1
+  instance_size_slug: apps-s-1vcpu-1gb
+  envs:
+  - key: VLLM_BASE_URL
+    scope: RUN_AND_BUILD_TIME
+    value: "http://165.245.138.52:8000/v1"
+  - key: VLLM_MODEL
+    scope: RUN_AND_BUILD_TIME
+    value: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+  - key: VLLM_TIMEOUT
+    scope: RUN_AND_BUILD_TIME
+    value: "120"
+  - key: VLLM_MAX_TOKENS
+    scope: RUN_AND_BUILD_TIME
+    value: "4096"
+  - key: VLLM_TEMPERATURE
+    scope: RUN_AND_BUILD_TIME
+    value: "0.1"
+  - key: VLLM_API_KEY
+    scope: RUN_AND_BUILD_TIME
+    value: "not-needed"
+  - key: SUPABASE_URL
+    scope: RUN_AND_BUILD_TIME
+    value: "https://fkjwaubqwvcereilllow.supabase.co"
+  - key: SUPABASE_REST_API
+    scope: RUN_AND_BUILD_TIME
+    value: "https://fkjwaubqwvcereilllow.supabase.co/rest/v1/"
+  - key: SUPABASE_SERVICE_KEY
+    scope: RUN_AND_BUILD_TIME
+    value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrandhdWJxd3ZjZXJlaWxsbG93Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzA4MjkyMSwiZXhwIjoyMDkyNjU4OTIxfQ.x4KoSp7gVcSGWHhfUnliBezsnYsSDiuXJ4yHPXjZlfk"
+  - key: SUPABASE_ANON_KEY
+    scope: RUN_AND_BUILD_TIME
+    value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrandhdWJxd3ZjZXJlaWxsbG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwODI5MjEsImV4cCI6MjA5MjY1ODkyMX0.Rph267KUNhk7sTjR_dCtqRUxq3miiMrfgSmnHg8gu9k"
+  - key: ATLAS_API_KEY
+    scope: RUN_AND_BUILD_TIME
+    value: "5b477b525d43c080c7921cc9a5ef31b93da59cb5b7d299b0cb383417626b8091"
+  - key: ATLAS_CORS_ORIGINS
+    scope: RUN_AND_BUILD_TIME
+    value: "https://atlas-hackathon.com,https://www.atlas-hackathon.com,https://atlas-amd-qs5g4.ondigitalocean.app"
+  - key: ATLAS_DOCS_DIR
+    scope: RUN_AND_BUILD_TIME
+    value: "/tmp/atlas_uploads"
+  - key: TESSERACT_CMD
+    scope: RUN_AND_BUILD_TIME
+    value: "/usr/bin/tesseract"
+  - key: POPPLER_PATH
+    scope: RUN_AND_BUILD_TIME
+    value: "/usr/bin"
+  - key: LOG_LEVEL
+    scope: RUN_AND_BUILD_TIME
+    value: "INFO"
+  - key: DEBUG
+    scope: RUN_AND_BUILD_TIME
+    value: "False"
+
+- name: atlas-frontend
+  github:
+    repo: rafaelcedilloav-eng/atlas-amd-hackathon
+    branch: main
+    deploy_on_push: true
+  source_dir: /frontend
+  dockerfile_path: /frontend/Dockerfile
+  http_port: 3000
+  instance_count: 1
+  instance_size_slug: apps-s-1vcpu-1gb
+  envs:
+  - key: NEXT_PUBLIC_API_URL
+    scope: BUILD_TIME
+    value: "https://atlas-amd-qs5g4.ondigitalocean.app"
+  - key: NEXT_PUBLIC_API_KEY
+    scope: BUILD_TIME
+    value: "5b477b525d43c080c7921cc9a5ef31b93da59cb5b7d299b0cb383417626b8091"
+  - key: NEXT_PUBLIC_SUPABASE_URL
+    scope: BUILD_TIME
+    value: "https://fkjwaubqwvcereilllow.supabase.co"
+
+alerts:
+- rule: DEPLOYMENT_FAILED
+- rule: DOMAIN_FAILED
