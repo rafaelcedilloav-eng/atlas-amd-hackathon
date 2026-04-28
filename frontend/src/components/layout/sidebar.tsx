@@ -33,7 +33,7 @@ export const Sidebar = () => {
           className="flex items-center gap-3 px-4 py-3 rounded text-amd-gray-300 hover:text-white hover:bg-amd-gray-900 border border-transparent hover:border-amd-gray-800 transition-all duration-300 font-medium group"
         >
           <FileSearch className="w-5 h-5 group-hover:text-amd-red transition-colors" />
-          <span className="text-sm uppercase tracking-tight">Auditorías</span>
+          <span className="text-sm uppercase tracking-tight">Audits</span>
         </Link>
         
         <Link 
@@ -74,7 +74,7 @@ export const Sidebar = () => {
 
         <Link href="/settings" className="flex items-center gap-3 px-4 py-2 text-amd-gray-500 hover:text-amd-red transition-all font-medium text-xs uppercase tracking-tighter">
           <Settings className="w-4 h-4" />
-          Configuración_del_Sistema
+          System_Config
         </Link>
       </div>
     </aside>

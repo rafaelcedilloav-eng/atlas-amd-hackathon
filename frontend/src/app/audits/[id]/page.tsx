@@ -52,7 +52,7 @@ export default function AuditDetails() {
   if (error || !audit) {
     return (
       <ErrorState
-        message={(error as Error)?.message || "No se encontró la auditoría"}
+        message={(error as Error)?.message || "Audit not found"}
       />
     );
   }
@@ -109,20 +109,20 @@ export default function AuditDetails() {
             
             <div className="space-y-4">
               <span className="text-[10px] text-amd-red font-black uppercase tracking-[0.3em] flex items-center gap-3">
-                <Terminal className="w-4 h-4" /> REPORTE_EJECUTIVO_FORENSE
+                <Terminal className="w-4 h-4" /> FORENSIC_EXECUTIVE_REPORT
               </span>
               <h3 className="text-3xl font-black text-white uppercase tracking-tighter leading-tight">
-                {result?.explanation?.explanation?.title ?? "SIN_TÍTULO_DE_ANALISIS"}
+                {result?.explanation?.explanation?.title ?? "NO_ANALYSIS_TITLE"}
               </h3>
               <p className="text-lg text-amd-gray-300 leading-relaxed font-medium">
-                {result?.explanation?.explanation?.summary ?? "Esperando resumen de DeepSeek-R1..."}
+                {result?.explanation?.explanation?.summary ?? "Awaiting DeepSeek-R1 summary..."}
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-amd-gray-800">
               <div className="space-y-3">
                 <span className="text-[10px] text-amd-red font-black uppercase tracking-widest flex items-center gap-2">
-                   RAZÓN_DE_LA_TRAMPA
+                   ANOMALY_REASON
                 </span>
                 <p className="text-sm text-amd-gray-400 leading-relaxed italic">
                   "{result?.explanation?.explanation?.why_its_a_trap ?? "—"}"
@@ -130,7 +130,7 @@ export default function AuditDetails() {
               </div>
               <div className="space-y-3">
                 <span className="text-[10px] text-accent-success font-black uppercase tracking-widest flex items-center gap-2">
-                   IMPACTO_FINANCIERO
+                   FINANCIAL_IMPACT
                 </span>
                 <p className="text-sm text-amd-gray-400 leading-relaxed">
                   {result?.explanation?.explanation?.financial_impact ?? "—"}
@@ -143,7 +143,7 @@ export default function AuditDetails() {
           <section className="space-y-6">
             <h3 className="text-xs font-mono font-bold text-amd-gray-500 uppercase tracking-[0.3em] flex items-center gap-4">
               <Layers className="w-4 h-4 text-amd-red" />
-              CADENA_DE_RAZONAMIENTO_DEEPSEEK_R1
+              DEEPSEEK_R1_REASONING_CHAIN
             </h3>
             {result?.reasoning?.reasoning_chain?.length ? (
               <ReasoningChain steps={result.reasoning.reasoning_chain} />
@@ -151,7 +151,7 @@ export default function AuditDetails() {
               <div className="p-16 border border-dashed border-amd-gray-800 rounded bg-amd-gray-950/50 text-center">
                 <Loader2 className="w-8 h-8 text-amd-red animate-spin mx-auto mb-4" />
                 <p className="text-amd-gray-600 font-mono text-[10px] uppercase tracking-widest">
-                  Extrayendo_Conclusiones_Logicas...
+                  Extracting_Logical_Conclusions...
                 </p>
               </div>
             )}
@@ -162,23 +162,23 @@ export default function AuditDetails() {
             <div className="bg-amd-gray-950 border border-amd-gray-800 rounded-lg p-8 space-y-6">
               <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-amd-gray-500 flex items-center gap-3">
                 <CheckCircle2 className="w-4 h-4 text-accent-success" />
-                VERIFICACIÓN_DE_INTEGRIDAD
+                INTEGRITY_VERIFICATION
               </h4>
               <div className="space-y-4">
                 <Row
-                  label="Lógica_Consistente"
+                  label="Logic_Consistency"
                   value={result?.validation?.validation_result?.logically_sound ? "PASSED" : "FAILED"}
                   positive={result?.validation?.validation_result?.logically_sound}
                   mono
                 />
                 <Row
-                  label="Detección_de_Trampa"
+                  label="Anomaly_Detection"
                   value={result?.validation?.validation_result?.trap_is_real ? "CONFIRMED" : "NEGATIVE"}
                   positive={!result?.validation?.validation_result?.trap_is_real}
                   mono
                 />
                 <Row
-                  label="Motor_Matemático"
+                  label="Math_Engine"
                   value={result?.validation?.validation_result?.math_verified === false ? "CRITICAL_ERROR" : "VERIFIED"}
                   positive={result?.validation?.validation_result?.math_verified !== false}
                   mono
@@ -189,21 +189,21 @@ export default function AuditDetails() {
             <div className="bg-amd-gray-950 border border-amd-gray-800 rounded-lg p-8 space-y-6">
               <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-amd-gray-500 flex items-center gap-3">
                 <Zap className="w-4 h-4 text-accent-data" />
-                MÉTRICAS_DE_HARDWARE
+                HARDWARE_METRICS
               </h4>
               <div className="space-y-4">
                 <Row
-                  label="Latencia_Total"
+                  label="Total_Latency"
                   value={`${result?.total_processing_time_ms ?? 0}ms`}
                   mono
                 />
                 <Row
-                  label="Estado_de_Pipeline"
+                  label="Pipeline_Status"
                   value={result?.status ?? "—"}
                   mono
                 />
                 <Row
-                  label="Unidad_Cómputo"
+                  label="Compute_Unit"
                   value="AMD_INSTINCT_MI300X"
                   accentColor="text-amd-red"
                   mono
@@ -218,14 +218,14 @@ export default function AuditDetails() {
           {/* Confidence */}
           <section className="bg-amd-gray-900 border border-amd-gray-800 rounded-lg p-10 space-y-8 shadow-2xl">
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-amd-red text-center">
-              MAPA_DE_CONFIANZA_POR_AGENTE
+              AGENT_CONFIDENCE_MAP
             </h3>
             {result?.explanation?.confidence_breakdown ? (
               <ConfidenceRadar data={result.explanation.confidence_breakdown} />
             ) : (
               <div className="h-40 flex items-center justify-center">
                 <p className="text-amd-gray-600 font-mono text-[10px] uppercase tracking-widest animate-pulse">
-                  Generando_Visualización...
+                  Generating_Visualization...
                 </p>
               </div>
             )}
@@ -239,13 +239,13 @@ export default function AuditDetails() {
             
             <div>
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-amd-gray-500">
-                PROTOCOLO_DE_DECISIÓN_HUMANA
+                HUMAN_DECISION_PROTOCOL
               </h3>
               {currentDecision && (
                 <div className="mt-3 flex items-center gap-2">
                   <div className="w-1 h-1 bg-accent-data rounded-full animate-pulse" />
                   <p className="text-[10px] font-mono font-bold text-accent-data uppercase">
-                    ESTADO_ACTUAL: {currentDecision}
+                    CURRENT_STATUS: {currentDecision}
                   </p>
                 </div>
               )}
@@ -253,7 +253,7 @@ export default function AuditDetails() {
 
             <div className="space-y-4">
               <DecisionButton
-                label="APROBAR_DOCUMENTO"
+                label="APPROVE_DOCUMENT"
                 active={currentDecision === "APPROVE"}
                 disabled={decidingPending}
                 onClick={() => submitDecision("APPROVE")}
@@ -261,7 +261,7 @@ export default function AuditDetails() {
                 pending={decidingPending}
               />
               <DecisionButton
-                label="MARCAR_COMO_FRAUDE"
+                label="FLAG_AS_FRAUD"
                 active={currentDecision === "REJECT"}
                 disabled={decidingPending}
                 onClick={() => submitDecision("REJECT")}
@@ -269,7 +269,7 @@ export default function AuditDetails() {
                 pending={decidingPending}
               />
               <DecisionButton
-                label="SOLICITAR_INFORMACIÓN"
+                label="REQUEST_INFORMATION"
                 active={currentDecision === "REQUEST_MORE_INFO"}
                 disabled={decidingPending}
                 onClick={() => submitDecision("REQUEST_MORE_INFO")}
@@ -284,7 +284,7 @@ export default function AuditDetails() {
             Object.keys(result.vision.extracted_fields).length > 0 && (
               <section className="space-y-6">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-amd-gray-500 px-2">
-                  TELEMETRÍA_OCR_EXTRAÍDA
+                  EXTRACTED_OCR_TELEMETRY
                 </h3>
                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   {Object.entries(result.vision.extracted_fields).map(([key, field]) => (
@@ -309,7 +309,7 @@ export default function AuditDetails() {
        {/* Rafael's Spark - Quote */}
        <footer className="pt-10 opacity-30 text-center">
           <p className="font-mono text-[9px] text-amd-gray-600 italic uppercase tracking-[0.2em]">
-            "Un sistema sin supervisión es solo una opinión automatizada."
+            "A system without oversight is just an automated opinion."
           </p>
        </footer>
     </div>
@@ -420,7 +420,7 @@ function ErrorState({ message }: { message: string }) {
         <XCircle className="w-10 h-10 text-amd-red" />
       </div>
       <h2 className="text-4xl font-black tracking-tighter uppercase text-white">
-        FALLO_DE_SISTEMA
+        SYSTEM_FAILURE
       </h2>
       <p className="text-amd-gray-500 font-mono text-sm max-w-md uppercase tracking-tight leading-relaxed">
         {message}
@@ -429,7 +429,7 @@ function ErrorState({ message }: { message: string }) {
         onClick={() => window.location.reload()}
         className="px-10 py-4 bg-amd-red text-white font-black text-xs uppercase tracking-widest rounded hover:bg-amd-red-deep transition-all shadow-lg"
       >
-        Reiniciar Canal de Datos
+        Restart Data Channel
       </button>
     </div>
   );
