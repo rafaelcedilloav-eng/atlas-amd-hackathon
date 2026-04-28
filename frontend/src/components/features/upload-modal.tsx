@@ -24,11 +24,11 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
 
   const handleFile = (f: File) => {
     if (!f.name.toLowerCase().endsWith(".pdf")) {
-      setError("Solo se aceptan archivos PDF.");
+      setError("Only PDF files are accepted.");
       return;
     }
     if (f.size > 20 * 1024 * 1024) {
-      setError("Archivo demasiado grande (máximo 20 MB).");
+      setError("File too large (maximum 20 MB).");
       return;
     }
     setError(null);
@@ -66,11 +66,11 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
       const errorMessage = (err as Error).message;
       setStatus("error");
       if (errorMessage.includes("401")) {
-        setError("API Key inválida — verifica la configuración.");
+        setError("Invalid API Key — check your configuration.");
       } else if (errorMessage.includes("413")) {
-        setError("Archivo demasiado grande (máximo 20 MB).");
+        setError("File too large (maximum 20 MB).");
       } else {
-        setError(errorMessage || "Error al procesar el documento.");
+        setError(errorMessage || "Error processing the document.");
       }
     }
   };
@@ -113,7 +113,7 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-2xl font-black tracking-tighter uppercase text-white">
-                  Nueva <span className="text-amd-red">Auditoría</span>
+                  New <span className="text-amd-red">Audit</span>
                 </h3>
                 <p className="text-xs font-mono text-amd-gray-500 uppercase tracking-widest mt-1">
                   DeepSeek-R1 / AMD MI300X Pipeline
@@ -150,11 +150,11 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-amd-gray-300 font-medium">
-                    Arrastra tu PDF aquí o{" "}
-                    <span className="text-amd-red hover:underline">selecciona un archivo</span>
+                    Drag your PDF here or{" "}
+                    <span className="text-amd-red hover:underline">select a file</span>
                   </p>
                   <p className="text-[10px] font-mono text-amd-gray-500 mt-2 uppercase tracking-tight">
-                    Máximo 20MB · Formato PDF Estándar
+                    Maximum 20MB · Standard PDF Format
                   </p>
                 </div>
                 <input
@@ -198,7 +198,7 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
                   <div className="flex items-center gap-3">
                     <Loader2 className="w-4 h-4 text-amd-red animate-spin" />
                     <span className="text-xs font-mono font-bold text-white uppercase tracking-widest">
-                      {status === "uploading" ? "Subiendo_Binarios" : "Ejecutando_Inferencia"}
+                      {status === "uploading" ? "Uploading_Binaries" : "Running_Inference"}
                     </span>
                   </div>
                   <span className="text-[10px] font-mono text-amd-red">
@@ -218,8 +218,8 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
 
                 <p className="text-[10px] font-mono text-amd-gray-500 leading-relaxed uppercase">
                   {status === "uploading" 
-                    ? "> Estableciendo canal seguro... transfiriendo bloques de datos."
-                    : "> DeepSeek-R1 analizando consistencia forense. Tiempo estimado: 52s."}
+                    ? "> Establishing secure channel... transferring data blocks."
+                    : "> DeepSeek-R1 analyzing forensic consistency. Estimated time: 52s."}
                 </p>
               </div>
             )}
@@ -241,7 +241,7 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
                 disabled={status === "uploading" || status === "processing"}
                 className="flex-1 py-4 bg-amd-gray-800 hover:bg-amd-gray-700 text-white text-xs font-bold uppercase tracking-widest rounded transition-all disabled:opacity-20"
               >
-                Abordar
+                Abort
               </button>
               <button
                 onClick={handleSubmit}
@@ -253,14 +253,14 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
                 ) : (
                   <Upload className="w-4 h-4" />
                 )}
-                {status === "uploading" ? "Transmitiendo..." : status === "processing" ? "Procesando" : "Iniciar Análisis"}
+                {status === "uploading" ? "Transmitting..." : status === "processing" ? "Processing" : "Start Analysis"}
               </button>
             </div>
 
             {/* Rafael's Spark - Subtle technical quote */}
             <div className="text-center pt-2">
               <p className="text-[9px] font-mono text-amd-gray-700 italic">
-                "La precisión no es un acto, es el hábito de la arquitectura técnica."
+                "Precision is not an act, it&apos;s the habit of technical architecture."
               </p>
             </div>
           </motion.div>

@@ -56,7 +56,7 @@ export default function IntegrityPage() {
       {isLoading ? (
         <div className="flex items-center gap-3 text-amd-gray-500 p-10">
           <Loader2 className="w-5 h-5 animate-spin text-amd-red" />
-          <span className="font-mono text-sm uppercase tracking-widest">Analizando_Integridad</span>
+          <span className="font-mono text-sm uppercase tracking-widest">Analyzing_Integrity</span>
         </div>
       ) : (
         <>
@@ -64,7 +64,7 @@ export default function IntegrityPage() {
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}>
               <StatCard
                 icon={<ShieldCheck className="w-6 h-6 text-accent-success" />}
-                label="Documentos_Limpios"
+                label="Clean_Documents"
                 value={clean.length}
                 color="bg-accent-success/10"
               />
@@ -72,7 +72,7 @@ export default function IntegrityPage() {
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
               <StatCard
                 icon={<Copy className="w-6 h-6 text-amber-400" />}
-                label="Duplicados_Detectados"
+                label="Duplicates_Detected"
                 value={duplicates.length}
                 color="bg-amber-400/10"
               />
@@ -80,7 +80,7 @@ export default function IntegrityPage() {
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <StatCard
                 icon={<Ban className="w-6 h-6 text-amd-red" />}
-                label="Proveedores_Bloqueados"
+                label="Blocked_Vendors"
                 value={blacklisted.length}
                 color="bg-amd-red/10"
               />
@@ -91,7 +91,7 @@ export default function IntegrityPage() {
             <div className="bg-amd-gray-900 border border-amd-gray-800 rounded-lg overflow-hidden">
               <div className="px-6 py-4 bg-amd-gray-950 border-b border-amd-gray-800">
                 <p className="text-xs font-mono font-bold text-amd-red uppercase tracking-widest">
-                  Alertas_de_Integridad
+                  Integrity_Alerts
                 </p>
               </div>
               <div className="divide-y divide-amd-gray-800">
@@ -101,7 +101,7 @@ export default function IntegrityPage() {
                     <div className="flex gap-2">
                       {audit.is_duplicate && (
                         <span className="text-[10px] font-mono font-bold bg-amber-400/10 text-amber-400 px-2 py-1 rounded uppercase">
-                          Duplicado
+                          Duplicate
                         </span>
                       )}
                       {audit.is_blacklisted && (
@@ -123,7 +123,7 @@ export default function IntegrityPage() {
                 Integrity_Gate: All Clear
               </p>
               <p className="font-mono text-amd-gray-500 text-xs">
-                Ningún documento duplicado ni proveedor bloqueado detectado.
+                No duplicate documents or blacklisted vendors detected.
               </p>
             </div>
           )}

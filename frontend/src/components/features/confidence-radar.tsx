@@ -15,9 +15,9 @@ interface ConfidenceRadarProps {
 
 export const ConfidenceRadar = ({ data }: ConfidenceRadarProps) => {
   const chartData = [
-    { subject: "VISIÓN_OCR", value: data.vision_confidence * 100 },
-    { subject: "LÓGICA_R1", value: data.reasoning_confidence * 100 },
-    { subject: "VALIDACIÓN", value: data.validation_confidence * 100 },
+    { subject: "VISION_OCR", value: data.vision_confidence * 100 },
+    { subject: "LOGIC_R1", value: data.reasoning_confidence * 100 },
+    { subject: "VALIDATION", value: data.validation_confidence * 100 },
   ];
 
   const overall = Math.round(data.overall_confidence * 100);
@@ -33,7 +33,7 @@ export const ConfidenceRadar = ({ data }: ConfidenceRadarProps) => {
               tick={{ fill: "#6B6B6B", fontSize: 9, fontFamily: "JetBrains Mono, monospace", fontWeight: 700 }} 
             />
             <Radar
-              name="Confianza"
+              name="Confidence"
               dataKey="value"
               stroke="#ED1C24"
               fill="#ED1C24"

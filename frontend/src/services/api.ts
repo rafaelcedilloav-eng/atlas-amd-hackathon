@@ -20,7 +20,7 @@ const uploadHeaders = (): HeadersInit => ({
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Error desconocido" }));
+    const err = await res.json().catch(() => ({ detail: "Unknown error" }));
     throw new Error(err.detail || `Error ${res.status}`);
   }
   return res.json();

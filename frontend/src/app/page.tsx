@@ -30,7 +30,7 @@ export default function Dashboard() {
         <header className="flex justify-between items-end relative z-10">
           <div>
             <h2 className="text-5xl font-black tracking-tighter uppercase text-white">
-              SISTEMA <span className="text-amd-red">ATLAS</span>
+              <span className="text-amd-red">ATLAS</span> SYSTEM
             </h2>
             <p className="text-amd-gray-500 font-mono text-xs uppercase tracking-[0.3em] mt-2">
               Deep_Auditor // Forensic_Analysis_Unit
@@ -41,7 +41,7 @@ export default function Dashboard() {
             className="bg-amd-red hover:bg-amd-red-deep text-white font-black py-4 px-8 rounded flex items-center gap-3 transition-all shadow-[0_0_25px_rgba(237,28,36,0.2)] hover:shadow-[0_0_40px_rgba(237,28,36,0.4)] active:scale-95 uppercase text-xs tracking-widest"
           >
             <Upload className="w-5 h-5" />
-            Nueva Auditoría
+            New Audit
           </button>
         </header>
 
@@ -49,26 +49,26 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative z-10">
           <StatCard
             icon={<FileText className="text-white" />}
-            label="Auditorías Totales"
+            label="Total Audits"
             value={statsLoading ? "—" : String(stats?.total_audits ?? 0)}
             subValue="DOC_PROCESSED"
           />
           <StatCard
             icon={<AlertTriangle className="text-amd-red" />}
-            label="Fraudes Detectados"
+            label="Fraud Detected"
             value={statsLoading ? "—" : String(stats?.fraud_detected ?? 0)}
             subValue="THREATS_IDENTIFIED"
             accent
           />
           <StatCard
             icon={<ShieldCheck className="text-accent-success" />}
-            label="Confianza Promedio"
+            label="Avg. Confidence"
             value={statsLoading ? "—" : `${stats?.avg_confidence_pct ?? 0}%`}
             subValue="VALIDATION_SCORE"
           />
           <StatCard
             icon={<Cpu className="text-accent-data" />}
-            label="Latencia de Inferencia"
+            label="Inference Latency"
             value={statsLoading ? "—" : `${((stats?.avg_processing_time_ms ?? 0) / 1000).toFixed(1)}s`}
             subValue="AMD_MI300X_GFLOPS"
           />
@@ -79,7 +79,7 @@ export default function Dashboard() {
           <div className="lg:col-span-2 space-y-6">
             <h3 className="text-xs font-mono font-bold text-amd-gray-500 uppercase tracking-widest flex items-center gap-3">
               <Activity className="w-4 h-4 text-amd-red" />
-              Monitor_de_Actividad_Reciente
+              Recent_Activity_Monitor
             </h3>
 
             <div className="bg-amd-gray-900 border border-amd-gray-800 rounded-lg divide-y divide-amd-gray-800 overflow-hidden shadow-2xl">
@@ -100,13 +100,13 @@ export default function Dashboard() {
                     <FileText className="w-8 h-8 text-amd-gray-700" />
                   </div>
                   <p className="text-amd-gray-500 font-mono text-xs uppercase tracking-widest">
-                    Esperando_Datos_de_Entrada
+                    Awaiting_Input_Data
                   </p>
                   <button
                     onClick={() => setUploadOpen(true)}
                     className="text-amd-red text-xs font-bold uppercase tracking-widest hover:underline"
                   >
-                    Iniciar Inferencia →
+                    Start Inference →
                   </button>
                 </div>
               ) : (
@@ -166,7 +166,7 @@ export default function Dashboard() {
           {/* Risk Distribution */}
           <div className="space-y-6">
              <h3 className="text-xs font-mono font-bold text-amd-gray-500 uppercase tracking-widest flex items-center gap-3">
-              Visualización_de_Riesgo
+              Risk_Visualization
             </h3>
             <div className="bg-amd-gray-900 border border-amd-gray-800 rounded-lg p-8 h-[380px] shadow-2xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10">
@@ -177,7 +177,7 @@ export default function Dashboard() {
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center space-y-4">
                     <Activity className="w-8 h-8 text-amd-red animate-pulse mx-auto" />
-                    <p className="text-amd-gray-600 font-mono text-[10px] uppercase tracking-widest">Calculando_Distribución</p>
+                    <p className="text-amd-gray-600 font-mono text-[10px] uppercase tracking-widest">Computing_Distribution</p>
                   </div>
                 </div>
               ) : stats ? (
@@ -185,7 +185,7 @@ export default function Dashboard() {
               ) : (
                 <div className="h-full flex items-center justify-center">
                    <p className="text-amd-gray-600 font-mono text-[10px] uppercase tracking-widest text-center leading-relaxed">
-                    Sin Datos de Telemetría<br/>Disponibles
+                    No Telemetry Data<br/>Available
                   </p>
                 </div>
               )}
@@ -199,7 +199,7 @@ export default function Dashboard() {
             AMD // ROCM_6.16 // DEEPSEEK_R1_ATLAS_V1
           </p>
           <p className="font-mono text-[9px] text-amd-gray-500 italic uppercase">
-            "La inteligencia es el resultado de la precisión a escala."
+            "Intelligence is the result of precision at scale."
           </p>
         </footer>
       </div>

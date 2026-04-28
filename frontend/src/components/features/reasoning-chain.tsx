@@ -51,7 +51,7 @@ export const ReasoningChain = ({ steps }: ReasoningChainProps) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4 border-t border-amd-gray-800 pt-4">
               <div className="space-y-2">
                 <span className="text-[9px] text-amd-gray-500 uppercase font-black tracking-widest flex items-center gap-2">
-                  <ChevronRight className="w-3 h-3 text-amd-red" /> Evidencia_Capturada
+                  <ChevronRight className="w-3 h-3 text-amd-red" /> Captured_Evidence
                 </span>
                 <p className="text-xs text-amd-gray-300 italic font-medium leading-relaxed bg-amd-black/50 p-3 rounded border border-amd-gray-800/50">
                   "{step.evidence}"
@@ -59,7 +59,7 @@ export const ReasoningChain = ({ steps }: ReasoningChainProps) => {
               </div>
               <div className="space-y-2">
                 <span className="text-[9px] text-accent-success uppercase font-black tracking-widest flex items-center gap-2">
-                  <CheckCircle2 className="w-3 h-3" /> Conclusión_Forense
+                  <CheckCircle2 className="w-3 h-3" /> Forensic_Conclusion
                 </span>
                 <p className="text-xs text-accent-success font-bold leading-relaxed uppercase tracking-tight">
                   {step.conclusion}

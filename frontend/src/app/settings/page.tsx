@@ -6,7 +6,7 @@ export default function SettingsPage() {
   const items = [
     {
       icon: <Cpu className="w-5 h-5 text-amd-red" />,
-      label: "Modelo LLM",
+      label: "LLM Model",
       value: "DeepSeek-R1-Distill-Qwen-32B",
       sub: "AMD MI300X · vLLM",
     },
@@ -18,13 +18,13 @@ export default function SettingsPage() {
     },
     {
       icon: <Database className="w-5 h-5 text-accent-success" />,
-      label: "Base de Datos",
+      label: "Database",
       value: "Supabase PostgreSQL",
       sub: process.env.NEXT_PUBLIC_SUPABASE_URL?.replace("https://", "") ?? "connected",
     },
     {
       icon: <Key className="w-5 h-5 text-amd-gray-400" />,
-      label: "Autenticación API",
+      label: "API Authentication",
       value: "X-API-Key",
       sub: "Header-based · SHA-256",
     },
@@ -36,7 +36,7 @@ export default function SettingsPage() {
         <Settings className="w-6 h-6 text-amd-red" />
         <div>
           <h2 className="text-2xl font-black tracking-tighter uppercase text-white">
-            Configuración <span className="text-amd-red">del Sistema</span>
+            System <span className="text-amd-red">Configuration</span>
           </h2>
           <p className="text-xs font-mono text-amd-gray-500 uppercase tracking-widest mt-1">
             System_Config — ATLAS v1.0 · AMD Edition

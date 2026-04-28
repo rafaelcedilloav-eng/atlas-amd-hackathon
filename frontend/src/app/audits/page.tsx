@@ -8,7 +8,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("es-MX", {
+  return new Date(iso).toLocaleDateString("en-US", {
     day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
@@ -27,10 +27,10 @@ export default function AuditsPage() {
           <FileSearch className="w-6 h-6 text-amd-red" />
           <div>
             <h2 className="text-2xl font-black tracking-tighter uppercase text-white">
-              Registro de <span className="text-amd-red">Auditorías</span>
+              Audit <span className="text-amd-red">Registry</span>
             </h2>
             <p className="text-xs font-mono text-amd-gray-500 uppercase tracking-widest mt-1">
-              Forensic_Pipeline_Log — {data?.total ?? 0} documentos procesados
+              Forensic_Pipeline_Log — {data?.total ?? 0} documents processed
             </p>
           </div>
         </div>
@@ -40,30 +40,30 @@ export default function AuditsPage() {
         {isLoading ? (
           <div className="flex items-center justify-center p-20 gap-3 text-amd-gray-500">
             <Loader2 className="w-5 h-5 animate-spin text-amd-red" />
-            <span className="font-mono text-sm uppercase tracking-widest">Cargando_Registros</span>
+            <span className="font-mono text-sm uppercase tracking-widest">Loading_Records</span>
           </div>
         ) : error ? (
           <div className="p-10 text-center font-mono text-amd-red text-sm uppercase tracking-widest">
-            Error al cargar auditorías.
+            Error loading audits.
           </div>
         ) : !data?.audits.length ? (
           <div className="p-20 text-center space-y-3">
             <FileSearch className="w-12 h-12 text-amd-gray-700 mx-auto" />
             <p className="font-mono text-amd-gray-500 text-sm uppercase tracking-widest">
-              No hay auditorías registradas aún.
+              No audits registered yet.
             </p>
             <p className="font-mono text-amd-gray-600 text-xs">
-              Sube un documento desde el Dashboard para comenzar.
+              Upload a document from the Dashboard to get started.
             </p>
           </div>
         ) : (
           <div className="divide-y divide-amd-gray-800">
             <div className="grid grid-cols-12 px-6 py-3 text-[10px] font-mono font-bold text-amd-gray-500 uppercase tracking-widest bg-amd-gray-950">
-              <div className="col-span-4">Documento ID</div>
-              <div className="col-span-2">Severidad</div>
-              <div className="col-span-2">Confianza</div>
-              <div className="col-span-2">Integridad</div>
-              <div className="col-span-2">Fecha</div>
+              <div className="col-span-4">Document ID</div>
+              <div className="col-span-2">Severity</div>
+              <div className="col-span-2">Confidence</div>
+              <div className="col-span-2">Integrity</div>
+              <div className="col-span-2">Date</div>
             </div>
             {data.audits.map((audit, i) => (
               <motion.div
