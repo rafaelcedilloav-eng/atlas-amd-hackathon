@@ -54,13 +54,13 @@ services:
     value: "https://fkjwaubqwvcereilllow.supabase.co/rest/v1/"
   - key: SUPABASE_SERVICE_KEY
     scope: RUN_AND_BUILD_TIME
-    value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrandhdWJxd3ZjZXJlaWxsbG93Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzA4MjkyMSwiZXhwIjoyMDkyNjU4OTIxfQ.x4KoSp7gVcSGWHhfUnliBezsnYsSDiuXJ4yHPXjZlfk"
+    value: "SET_IN_DO_DASHBOARD"
   - key: SUPABASE_ANON_KEY
     scope: RUN_AND_BUILD_TIME
-    value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrandhdWJxd3ZjZXJlaWxsbG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwODI5MjEsImV4cCI6MjA5MjY1ODkyMX0.Rph267KUNhk7sTjR_dCtqRUxq3miiMrfgSmnHg8gu9k"
+    value: "SET_IN_DO_DASHBOARD"
   - key: ATLAS_API_KEY
     scope: RUN_AND_BUILD_TIME
-    value: "5b477b525d43c080c7921cc9a5ef31b93da59cb5b7d299b0cb383417626b8091"
+    value: "SET_IN_DO_DASHBOARD"
   - key: ATLAS_CORS_ORIGINS
     scope: RUN_AND_BUILD_TIME
     value: "https://atlas-hackathon.com,https://www.atlas-hackathon.com,https://atlas-amd-qs5g4.ondigitalocean.app"
@@ -96,7 +96,7 @@ services:
     value: "https://atlas-amd-qs5g4.ondigitalocean.app/api"
   - key: NEXT_PUBLIC_API_KEY
     scope: BUILD_TIME
-    value: "5b477b525d43c080c7921cc9a5ef31b93da59cb5b7d299b0cb383417626b8091"
+    value: "SET_IN_DO_DASHBOARD"
   - key: NEXT_PUBLIC_SUPABASE_URL
     scope: BUILD_TIME
     value: "https://fkjwaubqwvcereilllow.supabase.co"

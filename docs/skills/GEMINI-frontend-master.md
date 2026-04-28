@@ -38,7 +38,7 @@ Todas las peticiones (excepto `/stats`) incluyen el header:
 ### Variables de Entorno (`.env.local`)
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8080
-NEXT_PUBLIC_API_KEY=5b477b525d43c080c7921cc9a5ef31b93da59cb5b7d299b0cb383417626b8091
+NEXT_PUBLIC_API_KEY=YOUR_ATLAS_API_KEY
 NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
 ```
 
