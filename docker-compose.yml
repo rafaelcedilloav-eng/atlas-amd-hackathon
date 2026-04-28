@@ -26,7 +26,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: https://api.atlas-hackathon.com
+        NEXT_PUBLIC_API_URL: https://atlas-amd-qs5g4.ondigitalocean.app
         NEXT_PUBLIC_API_KEY: ${ATLAS_API_KEY}
     container_name: atlas-frontend
     restart: always
