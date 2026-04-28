@@ -4,47 +4,12 @@ features:
 - buildpack-stack=ubuntu-22
 ingress:
   rules:
-  # API routes → backend (orden importa: más específico primero)
+  # /api/* → backend (DO strips /api, backend recibe /upload, /stats, etc.)
   - component:
       name: atlas-amd-hackathon
     match:
       path:
-        prefix: /upload
-  - component:
-      name: atlas-amd-hackathon
-    match:
-      path:
-        prefix: /analyze
-  - component:
-      name: atlas-amd-hackathon
-    match:
-      path:
-        prefix: /result
-  - component:
-      name: atlas-amd-hackathon
-    match:
-      path:
-        prefix: /audit-list
-  - component:
-      name: atlas-amd-hackathon
-    match:
-      path:
-        prefix: /stats
-  - component:
-      name: atlas-amd-hackathon
-    match:
-      path:
-        prefix: /human_decision
-  - component:
-      name: atlas-amd-hackathon
-    match:
-      path:
-        prefix: /docs
-  - component:
-      name: atlas-amd-hackathon
-    match:
-      path:
-        prefix: /openapi.json
+        prefix: /api
   # Todo lo demás → frontend Next.js
   - component:
       name: atlas-frontend
@@ -128,7 +93,7 @@ services:
   envs:
   - key: NEXT_PUBLIC_API_URL
     scope: BUILD_TIME
-    value: "https://atlas-amd-qs5g4.ondigitalocean.app"
+    value: "https://atlas-amd-qs5g4.ondigitalocean.app/api"
   - key: NEXT_PUBLIC_API_KEY
     scope: BUILD_TIME
     value: "5b477b525d43c080c7921cc9a5ef31b93da59cb5b7d299b0cb383417626b8091"
