@@ -3,6 +3,102 @@
 
 ---
 
+## ESTADO REAL DEL SISTEMA (actualizado 2026-04-27)
+
+> Esta sección refleja el estado verificado tras la sesión de diagnóstico.
+> Leerla primero evita repetir trabajo ya hecho.
+
+### Lo que YA EXISTE y funciona
+- `src/agent_vision.py` — Agente 1 completo con persistencia Supabase
+- `src/agent_reasoning.py` — Agente 2 con fallback determinista integrado
+- `src/agent_validator.py` — Agente 3 con math Decimal + blacklist + duplicados
+- `src/agent_explainer.py` — Agente 4 con fallback de emergencia
+- `src/orchestrator.py` — Pipeline completo con short-circuit y persistencia final
+- `src/api.py` — FastAPI con 5 endpoints (/analyze, /upload, /result, /audits, /stats, /human_decision)
+- `src/supabase_client.py` — singleton lazy, lee SUPABASE_SERVICE_KEY primero
+- `src/supabase_persistence.py` — todas las operaciones de DB centralizadas
+- `src/vllm_client.py` — cliente OpenAI-compatible apuntando a AMD
+- `src/agent_vision_extractor.py` — extracción 3 capas (pymupdf4llm → pymupdf → tesseract)
+- `src/validate_connections.py` — validador de conexiones con reporte ASCII
+- `frontend/` — React/Vite dashboard completo
+
+### Conexiones verificadas (2026-04-27) — TODAS OK
+- **vLLM AMD**: OK — `http://165.245.138.52:8000/v1` responde con DeepSeek-R1-Distill-Qwen-32B
+- **OCR local**: OK — PyMuPDF + pymupdf4llm + pytesseract instalados en venv
+- **Supabase**: OK — service_role JWT configurado, 5 tablas accesibles
+- **Pipeline end-to-end**: OK — COMPLETO en ~52s, DeepSeek-R1 activo (fallback=False)
+
+### Dependencias criticas de la venv (Python 3.12)
+```
+supabase==2.10.0        # NO actualizar — 2.29 requiere pyiceberg que necesita MSVC en Windows
+websockets>=13,<16      # realtime 2.29 necesita websockets.asyncio (>=13), pero <16 por compatibilidad
+httpx==0.27.2           # supabase 2.10 + ollama compatibles aqui
+pymupdf4llm>=1.27       # instalado, pero cae a pymupdf nativo por error ONNX int32/int64 en Windows (no critico)
+```
+
+### IP del servidor AMD
+- IP correcta en .env: `165.245.138.52` (verificada, modelo cargado y respondiendo)
+- IP en el master original `165.245.141.216` esta INCORRECTA — ignorar
+
+### Comando de inicio rapido
+```bash
+# Validar todo antes de trabajar:
+venv/Scripts/python.exe src/validate_connections.py
+
+# Correr el pipeline con un PDF:
+venv/Scripts/python.exe -c "
+import asyncio
+from src.orchestrator import run_pipeline
+asyncio.run(run_pipeline('test_documents/INVOICE_001_TRAP_MATH.pdf'))
+"
+
+# Levantar la API:
+venv/Scripts/uvicorn src.api:app --host 0.0.0.0 --port 8080 --reload
+```
+
+### Estado actual del schema Supabase (patch ya aplicado)
+- `documents` — tiene `total_amount`, `raw_text`, `extracted_fields` (JSONB)
+- `audit_results` — tiene `result_json` (JSONB) y `human_decision` para el endpoint /human_decision
+- `processed_doc_ids` — control de duplicados por doc_id y document_hash
+- `blacklist_vendors` — 2 vendors precargados (Proveedora Fantasma, Servicios Duplicados MX)
+- `audit_trail` — log inmutable de cada agente por documento
+
+### Seguridad del backend (aplicada 2026-04-27)
+Todas las vulnerabilidades del backend fueron corregidas en `src/api.py`:
+- **Path Traversal /analyze** — `_safe_path()` restringe al directorio `ATLAS_DOCS_DIR`
+- **Sin autenticacion** — header `X-API-Key` requerido (excepto `/stats` que es publico)
+- **CORS wildcard + credentials** — origins explicitos, `allow_credentials=False`
+- **Upload sin limite** — 20 MB max + magic bytes `%PDF-` validados + filename sanitizado
+- **`/audits` sin tope** — `Query(ge=1, le=100)`
+- **Errores internos expuestos** — mensajes genericos al cliente, error real solo en logs
+- **`select("*")`** — solo columnas necesarias en `/result`
+- **document_id sin validar** — regex `[a-f0-9]{64}` (solo SHA256)
+
+Variables de seguridad en `.env`:
+```
+ATLAS_API_KEY=5b477b525d43c080c7921cc9a5ef31b93da59cb5b7d299b0cb383417626b8091
+ATLAS_CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+ATLAS_DOCS_DIR=test_documents
+```
+
+Para llamar a la API desde el frontend, agregar el header:
+```
+X-API-Key: 5b477b525d43c080c7921cc9a5ef31b93da59cb5b7d299b0cb383417626b8091
+```
+
+### Bugs corregidos del pipeline (sesion 2026-04-27, NO re-aplicar)
+1. `orchestrator.py` — `math_pass` logica invertida → `math_pass = math_raw`
+2. `agent_vision.py` — `total_amount` excluia Decimal → helper `_safe_float()`
+3. `agent_vision.py` + `agent_reasoning.py` — `model_dump()` sin `mode="json"` crasheaba Agent 2
+4. `supabase_persistence.py` — `upsert on_conflict` no reconocido → `insert` con manejo de duplicados
+5. `validate_connections.py` — emojis rompian consola Windows cp1252 → ASCII
+6. SQL — columnas `result_json`, `human_decision`, `total_amount` faltaban (patch aplicado)
+
+### Siguiente accion
+- El pipeline y backend estan production-ready. Lo que falta: frontend React conectado a la API y video demo.
+
+---
+
 ## 🎯 MISIÓN
 
 Eres el arquitecto e implementador del sistema **ATLAS** — un pipeline de auditoría forense de documentos financieros (facturas y contratos) que corre sobre una GPU AMD Instinct MI300X VF con vLLM.
@@ -41,8 +137,8 @@ Tu trabajo es:
 
 | Componente | Valor |
 |------------|-------|
-| GPU Server IP | `165.245.141.216` |
-| vLLM API | `http://165.245.141.216:8000/v1` |
+| GPU Server IP | `165.245.138.52` |
+| vLLM API | `http://165.245.138.52:8000/v1` |
 | Modelo LLM | `deepseek-ai/DeepSeek-R1-Distill-Qwen-32B` |
 | Supabase URL | `https://fkjwaubqwvcereilllow.supabase.co` |
 | Supabase API | `https://fkjwaubqwvcereilllow.supabase.co/rest/v1/` |
@@ -239,6 +335,8 @@ CREATE TABLE IF NOT EXISTS audit_results (
     executive_report    TEXT,               -- reporte en español profesional
     financial_impact    NUMERIC(15, 2),     -- impacto financiero calculado
     recommended_action  TEXT,               -- acción recomendada al auditor
+    human_decision      TEXT,               -- decisión humana final: APPROVE | REJECT | REQUEST_MORE_INFO
+    result_json         JSONB,              -- snapshot completo del PipelineResult (para API /result/{id})
 
     -- Metadata
     pipeline_version    TEXT DEFAULT '1.0.0',
@@ -1104,7 +1202,7 @@ Antes de declarar ATLAS como production-ready, verifica:
 □ Agente 4 llama save_audit_result() al finalizar
 □ audit_trail registra cada agente
 □ python test_pipeline.py → sin errores críticos
-□ curl http://165.245.141.216:8000/v1/models → DeepSeek visible
+□ curl http://165.245.138.52:8000/v1/models → DeepSeek visible
 ```
 
 ---

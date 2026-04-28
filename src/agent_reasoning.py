@@ -29,7 +29,7 @@ class ReasoningAgent:
 
         # Preparar contexto para el LLM
         fields_json = json.dumps(
-            {k: v.model_dump() for k, v in vision_output.extracted_fields.items()}, 
+            {k: v.model_dump(mode="json") for k, v in vision_output.extracted_fields.items()},
             indent=2
         )
         

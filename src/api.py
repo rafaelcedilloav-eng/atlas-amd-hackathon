@@ -3,12 +3,15 @@ ATLAS FastAPI
 Endpoints: /analyze, /upload, /result/{id}, /audits, /stats, /human_decision
 """
 import logging
+import os
+import re
 import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -19,14 +22,78 @@ from src.supabase_client import get_client
 load_dotenv()
 logger = logging.getLogger(__name__)
 
+# ── Configuración de seguridad ─────────────────────────────────────────────────
+
+_API_KEY = os.getenv("ATLAS_API_KEY", "")
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+# Directorio raíz permitido para /analyze (solo archivos dentro de aquí)
+_ALLOWED_ANALYZE_DIR = Path(os.getenv("ATLAS_DOCS_DIR", "test_documents")).resolve()
+
+# Límite de tamaño para uploads: 20 MB
+_MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+# Origins permitidos (ajustar en producción)
+_ALLOWED_ORIGINS = os.getenv(
+    "ATLAS_CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:5173"
+).split(",")
+
+
+def _require_api_key(key: str = Depends(_api_key_header)):
+    """Valida X-API-Key si ATLAS_API_KEY está configurada en .env."""
+    if not _API_KEY:
+        return  # Sin key configurada — modo dev, sin auth (solo para localhost)
+    if key != _API_KEY:
+        raise HTTPException(status_code=401, detail="API key inválida o ausente.")
+
+
+def _safe_path(raw_path: str) -> Path:
+    """
+    Resuelve la ruta y verifica que esté dentro del directorio permitido.
+    Mitiga path traversal (../../etc/passwd, etc.).
+    """
+    try:
+        resolved = Path(raw_path).resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ruta de archivo inválida.")
+
+    if not resolved.is_relative_to(_ALLOWED_ANALYZE_DIR):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ruta fuera del directorio permitido. Solo se permiten archivos en: {_ALLOWED_ANALYZE_DIR}"
+        )
+    if not resolved.exists():
+        raise HTTPException(status_code=404, detail="Archivo no encontrado.")
+    if resolved.suffix.lower() != ".pdf":
+        raise HTTPException(status_code=400, detail="Solo se aceptan archivos PDF.")
+    return resolved
+
+
+def _safe_filename(filename: str) -> str:
+    """Sanitiza el nombre de archivo para evitar path traversal via filename."""
+    name = Path(filename).name  # Elimina cualquier componente de directorio
+    name = re.sub(r"[^\w\-.]", "_", name)  # Solo alfanumérico, guión, punto
+    if not name.lower().endswith(".pdf"):
+        name = name + ".pdf"
+    return name[:100]  # Truncar para evitar nombres muy largos
+
+
+def _validate_pdf_magic(content: bytes) -> bool:
+    """Verifica que el contenido comience con el magic byte de PDF (%PDF-)."""
+    return content[:5] == b"%PDF-"
+
+
+# ── App ────────────────────────────────────────────────────────────────────────
+
 app = FastAPI(title="ATLAS API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=False,  # False cuando origins incluye wildcard o son múltiples
+    allow_methods=["GET", "POST"],
+    allow_headers=["X-API-Key", "Content-Type"],
 )
 
 
@@ -37,66 +104,95 @@ class AnalyzeRequest(BaseModel):
 
 class HumanDecisionRequest(BaseModel):
     document_id: str
-    decision: str  # APPROVE | REJECT | REQUEST_MORE_INFO
+    decision: str
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
-@app.post("/analyze", response_model=PipelineResult)
+@app.post("/analyze", response_model=PipelineResult, dependencies=[Depends(_require_api_key)])
 async def analyze_document(req: AnalyzeRequest):
-    """Analiza un PDF por path del servidor."""
-    return await run_pipeline(req.pdf_path)
+    """
+    Analiza un PDF por path del servidor.
+    El path debe estar dentro del directorio ATLAS_DOCS_DIR (.env).
+    """
+    safe = _safe_path(req.pdf_path)
+    return await run_pipeline(str(safe))
 
 
-@app.post("/upload", response_model=PipelineResult)
+@app.post("/upload", response_model=PipelineResult, dependencies=[Depends(_require_api_key)])
 async def upload_document(file: UploadFile = File(...)):
     """Acepta un PDF como multipart/form-data, lo procesa y retorna el resultado."""
+    # 1. Validar extensión del filename
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Solo se aceptan archivos PDF.")
 
+    # 2. Leer contenido con límite de tamaño
+    content = await file.read(_MAX_UPLOAD_BYTES + 1)
+    if len(content) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Archivo demasiado grande. Máximo permitido: {_MAX_UPLOAD_BYTES // 1024 // 1024} MB."
+        )
+
+    # 3. Validar magic bytes (contenido real de PDF)
+    if not _validate_pdf_magic(content):
+        raise HTTPException(status_code=400, detail="El archivo no es un PDF válido.")
+
+    # 4. Sanitizar filename antes de escribir al disco
+    safe_name = _safe_filename(file.filename or "upload.pdf")
     tmp_dir = Path(tempfile.gettempdir()) / "atlas_uploads"
     tmp_dir.mkdir(exist_ok=True)
-    tmp_path = tmp_dir / (file.filename or "upload.pdf")
+    tmp_path = tmp_dir / safe_name
 
-    content = await file.read()
     tmp_path.write_bytes(content)
 
-    return await run_pipeline(str(tmp_path))
+    try:
+        return await run_pipeline(str(tmp_path))
+    finally:
+        # Eliminar el archivo temporal después de procesar
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
-@app.get("/result/{document_id}")
+@app.get("/result/{document_id}", dependencies=[Depends(_require_api_key)])
 async def get_result(document_id: str):
-    """Retorna el resultado completo de una auditoría por doc_id."""
+    """Retorna el resultado de una auditoría por doc_id."""
+    # Validar que document_id sea un hash SHA256 válido (64 hex chars)
+    if not re.fullmatch(r"[a-f0-9]{64}", document_id):
+        raise HTTPException(status_code=400, detail="document_id inválido.")
     try:
         sb = get_client()
         resp = (
             sb.table("audit_results")
-            .select("*")
+            .select("doc_id, final_status, result_json, human_decision, created_at, fraud_classification, severity")
             .eq("doc_id", document_id)
             .limit(1)
             .execute()
         )
         if not resp.data:
-            raise HTTPException(status_code=404, detail=f"Resultado no encontrado: {document_id}")
+            raise HTTPException(status_code=404, detail="Resultado no encontrado.")
         row = resp.data[0]
         return {
             "document_id": row["doc_id"],
             "status": row["final_status"],
+            "fraud_classification": row.get("fraud_classification"),
+            "severity": row.get("severity"),
             "result_json": row.get("result_json"),
             "human_decision": row.get("human_decision"),
             "created_at": row["created_at"],
-            "updated_at": row.get("created_at"),
         }
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error fetching result {document_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno al obtener el resultado.")
 
 
-@app.get("/audits")
-async def list_audits(limit: int = 20):
-    """Lista las últimas N auditorías con campos resumidos."""
+@app.get("/audits", dependencies=[Depends(_require_api_key)])
+async def list_audits(limit: int = Query(default=20, ge=1, le=100)):
+    """Lista las últimas N auditorías (máximo 100)."""
     try:
         sb = get_client()
         resp = (
@@ -113,12 +209,12 @@ async def list_audits(limit: int = 20):
         return {"audits": resp.data, "total": len(resp.data)}
     except Exception as e:
         logger.error(f"Error listing audits: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error interno al listar auditorías.")
 
 
 @app.get("/stats")
 async def get_stats():
-    """Estadísticas agregadas del dashboard. Nunca lanza excepción — retorna ceros si falla."""
+    """Estadísticas agregadas del dashboard. Endpoint público (solo lectura agregada)."""
     try:
         sb = get_client()
 
@@ -166,19 +262,23 @@ async def get_stats():
         }
 
 
-@app.post("/human_decision")
+@app.post("/human_decision", dependencies=[Depends(_require_api_key)])
 async def human_decision(req: HumanDecisionRequest):
     """Registra la decisión humana final sobre un documento auditado."""
     valid = ("APPROVE", "REJECT", "REQUEST_MORE_INFO")
     if req.decision not in valid:
         raise HTTPException(status_code=400, detail=f"decision debe ser uno de {valid}")
+    # Validar que document_id tenga formato SHA256
+    if not re.fullmatch(r"[a-f0-9]{64}", req.document_id):
+        raise HTTPException(status_code=400, detail="document_id inválido.")
     try:
         sb = get_client()
         sb.table("audit_results").update(
             {"human_decision": req.decision}
         ).eq("doc_id", req.document_id).execute()
     except Exception as e:
-        logger.warning(f"Supabase update human_decision failed: {e}")
+        logger.error(f"Error registrando human_decision: {e}")
+        raise HTTPException(status_code=500, detail="Error al registrar la decisión.")
 
     return {
         "status": "updated",

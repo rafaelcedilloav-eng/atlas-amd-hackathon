@@ -125,18 +125,30 @@ Reglas:
             logger.error(f"Error parseando JSON del LLM: {e}. Raw: {json_content[:200]}")
             raise
 
+    @staticmethod
+    def _safe_float(field: Optional[ExtractedField]) -> Optional[float]:
+        """Convierte cualquier valor numérico de ExtractedField a float para Supabase."""
+        if field is None or field.value is None:
+            return None
+        try:
+            return float(str(field.value).replace(",", "").replace("$", "").strip())
+        except (ValueError, TypeError):
+            return None
+
     def _persist_results(self, output: VisionOutput, raw_text: str):
         """Guarda en Supabase."""
         try:
+            fields = output.extracted_fields
+            vendor_field = fields.get("vendor_name")
             # Mapeo a tabla 'documents'
             doc_data = {
                 "doc_id": output.document_id,
                 "filename": Path(output.pdf_path).name,
                 "file_type": output.document_type,
-                "vendor_name": output.extracted_fields.get("vendor_name", {}).value if isinstance(output.extracted_fields.get("vendor_name"), ExtractedField) else None,
-                "total_amount": float(output.extracted_fields.get("total_amount").value) if output.extracted_fields.get("total_amount") and isinstance(output.extracted_fields.get("total_amount").value, (int, float, str)) and str(output.extracted_fields.get("total_amount").value).replace('.','').isdigit() else None,
+                "vendor_name": str(vendor_field.value) if isinstance(vendor_field, ExtractedField) and vendor_field.value is not None else None,
+                "total_amount": self._safe_float(fields.get("total_amount")),
                 "raw_text": raw_text,
-                "extracted_fields": {k: v.model_dump() for k, v in output.extracted_fields.items()}
+                "extracted_fields": {k: v.model_dump(mode="json") for k, v in output.extracted_fields.items()}
             }
             save_document(doc_data)
             

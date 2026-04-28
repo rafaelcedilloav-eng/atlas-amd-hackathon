@@ -12,7 +12,7 @@ interface UploadModalProps {
   onClose: () => void;
 }
 
-type UploadStatus = "idle" | "uploading" | "error";
+type UploadStatus = "idle" | "uploading" | "processing" | "error";
 
 export function UploadModal({ open, onClose }: UploadModalProps) {
   const router = useRouter();
@@ -25,6 +25,10 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
   const handleFile = (f: File) => {
     if (!f.name.toLowerCase().endsWith(".pdf")) {
       setError("Solo se aceptan archivos PDF.");
+      return;
+    }
+    if (f.size > 20 * 1024 * 1024) {
+      setError("Archivo demasiado grande (máximo 20 MB).");
       return;
     }
     setError(null);
@@ -40,16 +44,34 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
   };
 
   const handleSubmit = async () => {
-    if (!file || status === "uploading") return;
+    if (!file || status === "uploading" || status === "processing") return;
+
     setStatus("uploading");
     setError(null);
+
     try {
+      // Fase 1: Upload (rápida)
       const result = await atlasApi.uploadFile(file);
+
+      // Fase 2: Processing (lenta, ~52s)
+      setStatus("processing");
+
+      // En este pipeline, uploadFile ya retorna el resultado final porque el backend
+      // espera a que termine el procesamiento antes de responder.
+      // Si el backend fuera asíncrono, aquí haríamos polling.
+
       onClose();
       router.push(`/audits/${result.document_id}`);
     } catch (err) {
+      const errorMessage = (err as Error).message;
       setStatus("error");
-      setError((err as Error).message || "Error al procesar el documento.");
+      if (errorMessage.includes("401")) {
+        setError("API Key inválida — verifica la configuración.");
+      } else if (errorMessage.includes("413")) {
+        setError("Archivo demasiado grande (máximo 20 MB).");
+      } else {
+        setError(errorMessage || "Error al procesar el documento.");
+      }
     }
   };
 
@@ -60,7 +82,7 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
   };
 
   const handleClose = () => {
-    if (status === "uploading") return;
+    if (status === "uploading" || status === "processing") return;
     reset();
     onClose();
   };
@@ -73,7 +95,7 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/80 backdrop-blur-md"
             onClick={handleClose}
           />
 
@@ -82,20 +104,25 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative bg-slate-900 border border-white/10 rounded-3xl p-8 w-full max-w-md space-y-6 shadow-2xl"
+            className="relative bg-amd-gray-900 border border-amd-gray-800 rounded-lg p-8 w-full max-w-md space-y-6 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden"
           >
+            {/* AMD Accent Line */}
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amd-red to-transparent opacity-70" />
+
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black tracking-tighter">Nueva Auditoría</h3>
-                <p className="text-sm text-white/40">
-                  Sube un PDF para iniciar el análisis forense con DeepSeek-R1.
+                <h3 className="text-2xl font-black tracking-tighter uppercase text-white">
+                  Nueva <span className="text-amd-red">Auditoría</span>
+                </h3>
+                <p className="text-xs font-mono text-amd-gray-500 uppercase tracking-widest mt-1">
+                  DeepSeek-R1 / AMD MI300X Pipeline
                 </p>
               </div>
               <button
                 onClick={handleClose}
-                disabled={status === "uploading"}
-                className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center hover:bg-white/10 transition-all disabled:opacity-40"
+                disabled={status === "uploading" || status === "processing"}
+                className="w-8 h-8 bg-white/5 rounded flex items-center justify-center hover:bg-amd-red hover:text-white transition-all disabled:opacity-20"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -109,24 +136,26 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
                 onDrop={handleDrop}
                 onClick={() => inputRef.current?.click()}
                 className={cn(
-                  "border-2 border-dashed rounded-2xl p-10 flex flex-col items-center gap-3 cursor-pointer transition-all",
+                  "border border-dashed rounded-lg p-10 flex flex-col items-center gap-4 cursor-pointer transition-all duration-300",
                   dragging
-                    ? "border-blue-500 bg-blue-500/10"
-                    : "border-white/10 hover:border-white/30 hover:bg-white/5"
+                    ? "border-amd-red bg-amd-red/5"
+                    : "border-amd-gray-700 hover:border-amd-red/50 hover:bg-white/5"
                 )}
               >
                 <div className={cn(
-                  "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
-                  dragging ? "bg-blue-500/20" : "bg-white/5"
+                  "w-14 h-14 rounded flex items-center justify-center transition-all duration-300",
+                  dragging ? "bg-amd-red/20 shadow-[0_0_20px_rgba(237,28,36,0.2)]" : "bg-amd-gray-800"
                 )}>
-                  <Upload className={cn("w-6 h-6", dragging ? "text-blue-400" : "text-white/30")} />
+                  <Upload className={cn("w-7 h-7", dragging ? "text-amd-red" : "text-amd-gray-500")} />
                 </div>
                 <div className="text-center">
-                  <p className="text-sm text-white/60">
+                  <p className="text-sm text-amd-gray-300 font-medium">
                     Arrastra tu PDF aquí o{" "}
-                    <span className="text-blue-400 font-semibold">selecciona un archivo</span>
+                    <span className="text-amd-red hover:underline">selecciona un archivo</span>
                   </p>
-                  <p className="text-xs text-white/30 mt-1">Solo archivos .pdf</p>
+                  <p className="text-[10px] font-mono text-amd-gray-500 mt-2 uppercase tracking-tight">
+                    Máximo 20MB · Formato PDF Estándar
+                  </p>
                 </div>
                 <input
                   ref={inputRef}
@@ -137,42 +166,71 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
                 />
               </div>
             ) : (
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-4">
-                <div className="w-10 h-10 bg-blue-600/20 rounded-lg flex items-center justify-center shrink-0">
-                  <FileText className="w-5 h-5 text-blue-400" />
+              <div className="bg-amd-gray-950 border border-amd-gray-800 rounded-lg p-5 flex items-center gap-4 relative group">
+                <div className="w-12 h-12 bg-amd-red/10 border border-amd-red/20 rounded flex items-center justify-center shrink-0">
+                  <FileText className="w-6 h-6 text-amd-red" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-white truncate">{file.name}</p>
-                  <p className="text-xs text-white/40">{(file.size / 1024).toFixed(1)} KB</p>
+                  <p className="font-bold text-white truncate text-sm uppercase tracking-tight">{file.name}</p>
+                  <p className="text-[10px] font-mono text-amd-gray-500 tracking-tighter">
+                    {(file.size / (1024 * 1024)).toFixed(2)} MB / READY_FOR_INFERENCE
+                  </p>
                 </div>
-                {status !== "uploading" && (
+                {(status === "idle" || status === "error") && (
                   <button
                     onClick={reset}
-                    className="text-white/30 hover:text-white transition-colors shrink-0"
+                    className="text-amd-gray-500 hover:text-amd-red transition-colors shrink-0"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-5 h-5" />
                   </button>
+                )}
+                {/* Progress bar pulse for processing */}
+                {(status === "uploading" || status === "processing") && (
+                  <div className="absolute bottom-0 left-0 h-[1px] bg-amd-red animate-[shimmer_2s_infinite] w-full" />
                 )}
               </div>
             )}
 
             {/* Status messages */}
-            {status === "uploading" && (
-              <div className="bg-blue-600/10 border border-blue-600/20 rounded-xl px-4 py-3 flex items-center gap-3">
-                <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-blue-400">Analizando documento...</p>
-                  <p className="text-xs text-white/40">
-                    DeepSeek-R1 procesando. Puede tomar 30–90 segundos.
-                  </p>
+            {(status === "uploading" || status === "processing") && (
+              <div className="bg-amd-gray-950 border border-amd-gray-800 rounded-lg p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-4 h-4 text-amd-red animate-spin" />
+                    <span className="text-xs font-mono font-bold text-white uppercase tracking-widest">
+                      {status === "uploading" ? "Subiendo_Binarios" : "Ejecutando_Inferencia"}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-amd-red">
+                    {status === "uploading" ? "LOCAL -> CLOUD" : "AMD_MI300X_ACTIVE"}
+                  </span>
                 </div>
+
+                {/* Technical Progress Bar */}
+                <div className="h-1 bg-amd-gray-800 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: "0%" }}
+                    animate={{ width: status === "uploading" ? "30%" : "90%" }}
+                    transition={{ duration: status === "uploading" ? 2 : 45, ease: "linear" }}
+                    className="h-full bg-amd-red shadow-[0_0_10px_rgba(237,28,36,0.5)]"
+                  />
+                </div>
+
+                <p className="text-[10px] font-mono text-amd-gray-500 leading-relaxed uppercase">
+                  {status === "uploading" 
+                    ? "> Estableciendo canal seguro... transfiriendo bloques de datos."
+                    : "> DeepSeek-R1 analizando consistencia forense. Tiempo estimado: 52s."}
+                </p>
               </div>
             )}
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 flex items-center gap-3">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                <p className="text-sm text-red-400">{error}</p>
+              <div className="bg-amd-red/5 border border-amd-red/20 rounded-lg p-4 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amd-red shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-mono font-bold text-amd-red uppercase tracking-tight">Critical_Error</p>
+                  <p className="text-xs text-amd-gray-300 mt-1 leading-normal">{error}</p>
+                </div>
               </div>
             )}
 
@@ -180,23 +238,30 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={handleClose}
-                disabled={status === "uploading"}
-                className="flex-1 py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-white/60 font-bold rounded-xl transition-all disabled:opacity-40"
+                disabled={status === "uploading" || status === "processing"}
+                className="flex-1 py-4 bg-amd-gray-800 hover:bg-amd-gray-700 text-white text-xs font-bold uppercase tracking-widest rounded transition-all disabled:opacity-20"
               >
-                Cancelar
+                Abordar
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={!file || status === "uploading"}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                disabled={!file || status === "uploading" || status === "processing"}
+                className="flex-1 py-4 bg-amd-red hover:bg-amd-red-deep disabled:opacity-20 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-widest rounded transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(237,28,36,0.15)] hover:shadow-[0_0_30px_rgba(237,28,36,0.3)]"
               >
-                {status === "uploading" ? (
+                {status === "uploading" || status === "processing" ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <Upload className="w-4 h-4" />
                 )}
-                {status === "uploading" ? "Procesando..." : "Iniciar Auditoría"}
+                {status === "uploading" ? "Transmitiendo..." : status === "processing" ? "Procesando" : "Iniciar Análisis"}
               </button>
+            </div>
+
+            {/* Rafael's Spark - Subtle technical quote */}
+            <div className="text-center pt-2">
+              <p className="text-[9px] font-mono text-amd-gray-700 italic">
+                "La precisión no es un acto, es el hábito de la arquitectura técnica."
+              </p>
             </div>
           </motion.div>
         </div>

@@ -156,9 +156,9 @@ def _persist_final_result(result: PipelineResult):
         severity_raw = result.validation.validation_result.severity_confirmed if result.validation else "MEDIUM"
         next_action = result.explanation.next_action if result.explanation else "AWAIT_HUMAN_DECISION"
 
-        # math_validation: True = pasa (sin error), False = falla (error confirmado), None = n/a
+        # math_validation: True = pasó validación matemática, False = error detectado, None = n/a
         math_raw = result.validation.validation_result.math_verified if result.validation else None
-        math_pass = (not math_raw) if math_raw is not None else None
+        math_pass = math_raw  # math_verified=True significa cálculos OK
 
         data = {
             "doc_id": result.document_id,

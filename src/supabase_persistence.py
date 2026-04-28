@@ -28,11 +28,19 @@ class AtlasPersistence:
     def save_document(self, document_data: dict) -> str:
         """Guarda metadatos del documento. Retorna el UUID generado."""
         try:
-            result = self.db.table("documents").upsert(document_data, on_conflict="doc_id").execute()
+            result = self.db.table("documents").insert(document_data).execute()
             doc_uuid = result.data[0]['id']
-            logger.info(f"Documento guardado/actualizado: {doc_uuid} | doc_id: {document_data.get('doc_id')}")
+            logger.info(f"Documento guardado: {doc_uuid} | doc_id: {document_data.get('doc_id')}")
             return doc_uuid
         except Exception as e:
+            # Si ya existe (duplicado), retornar el ID existente
+            if "duplicate" in str(e).lower() or "23505" in str(e) or "unique" in str(e).lower():
+                try:
+                    existing = self.db.table("documents").select("id").eq("doc_id", document_data.get("doc_id")).execute()
+                    if existing.data:
+                        return existing.data[0]['id']
+                except Exception:
+                    pass
             logger.error(f"Error guardando documento: {e}")
             return None
 
@@ -72,9 +80,11 @@ class AtlasPersistence:
     def register_processed_doc(self, doc_data: dict) -> None:
         """Registra documento como procesado para futuras verificaciones."""
         try:
-            self.db.table("processed_doc_ids").upsert(doc_data, on_conflict="doc_id").execute()
+            self.db.table("processed_doc_ids").insert(doc_data).execute()
             logger.info(f"Documento registrado como procesado: {doc_data.get('doc_id')}")
         except Exception as e:
+            if "duplicate" in str(e).lower() or "23505" in str(e) or "unique" in str(e).lower():
+                return  # Ya estaba registrado — OK
             logger.error(f"Error registrando documento procesado: {e}")
 
     # ─────────────────────────────────────────────

@@ -40,6 +40,7 @@ export interface ReasoningOutput {
   model_used: string;
   processing_time_ms: number;
   timestamp: string;
+  used_fallback?: boolean;
 }
 
 export interface ValidationResult {
@@ -112,7 +113,7 @@ export interface AtlasAuditRow {
   result_json: PipelineResult;
   human_decision: HumanDecision;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface StatsResponse {

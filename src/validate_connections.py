@@ -16,36 +16,39 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 def validate_all():
     results = {}
     print("\n" + "="*50)
-    print("ATLAS — INICIANDO VALIDACIÓN DE CONEXIONES")
+    print("ATLAS - INICIANDO VALIDACION DE CONEXIONES")
     print("="*50)
 
+    OK  = "[OK]"
+    ERR = "[FALLO]"
+    WARN = "[AVISO]"
+
     # 1. vLLM / AMD
-    logger.info("Validando conexión vLLM (AMD MI300X)...")
+    logger.info("Validando conexion vLLM (AMD MI300X)...")
     try:
         from src.vllm_client import verify_connection
         results['vllm'] = verify_connection()
         if results['vllm']:
-            print("  ✅ vLLM: OK — Servidor AMD MI300X accesible")
+            print(f"  {OK} vLLM: Servidor AMD MI300X accesible")
         else:
-            print("  ❌ vLLM: FALLO — Servidor conectado pero modelo no encontrado")
+            print(f"  {ERR} vLLM: Servidor conectado pero modelo no encontrado")
     except Exception as e:
         logger.error(f"vLLM error: {e}")
         results['vllm'] = False
-        print(f"  ❌ vLLM: FALLO — {e}")
+        print(f"  {ERR} vLLM: {e}")
 
     # 2. Supabase
-    logger.info("Validando conexión Supabase...")
+    logger.info("Validando conexion Supabase...")
     try:
         from src.supabase_client import get_client
         db = get_client()
-        # Intentar una operación simple
-        test = db.table("blacklist_vendors").select("id").limit(1).execute()
+        db.table("blacklist_vendors").select("id").limit(1).execute()
         results['supabase'] = True
-        print("  ✅ Supabase: OK — Conexión establecida")
+        print(f"  {OK} Supabase: Conexion establecida")
     except Exception as e:
         logger.error(f"Supabase error: {e}")
         results['supabase'] = False
-        print(f"  ❌ Supabase: FALLO — {e}")
+        print(f"  {ERR} Supabase: {e}")
 
     # 3. Tablas de Supabase (Schema)
     logger.info("Validando schema de tablas...")
@@ -57,47 +60,46 @@ def validate_all():
         for table in required_tables:
             try:
                 db.table(table).select("id").limit(1).execute()
-                print(f"    ✅ Tabla '{table}': OK")
+                print(f"    {OK} Tabla '{table}'")
             except Exception as te:
-                print(f"    ❌ Tabla '{table}': ERROR — {te}")
+                print(f"    {ERR} Tabla '{table}': {te}")
                 schema_ok = False
         results['schema'] = schema_ok
     except Exception as e:
         results['schema'] = False
-        print(f"  ❌ Schema: FALLO — {e}")
+        print(f"  {ERR} Schema: {e}")
 
-    # 4. OCR / Extracción
-    logger.info("Validando motores de extracción local...")
+    # 4. OCR / Extraccion
+    logger.info("Validando motores de extraccion local...")
     try:
         import fitz
-        print("    ✅ PyMuPDF: OK")
+        print(f"    {OK} PyMuPDF")
         import pymupdf4llm
-        print("    ✅ pymupdf4llm: OK")
+        print(f"    {OK} pymupdf4llm")
         import pytesseract
-        # Tesseract requiere el binario en el sistema, esta es solo la lib de python
-        print("    ✅ pytesseract (lib): OK")
+        print(f"    {OK} pytesseract (lib)")
         results['ocr'] = True
     except ImportError as ie:
         logger.warning(f"Motores OCR incompletos: {ie}")
         results['ocr'] = False
-        print(f"  ⚠️ OCR: INCOMPLETO — {ie}")
+        print(f"  {WARN} OCR: {ie}")
 
     # Reporte final
     print("\n" + "="*50)
-    print("ATLAS — REPORTE DE VALIDACIÓN")
+    print("ATLAS - REPORTE DE VALIDACION")
     print("="*50)
     all_ok = True
     for component, status in results.items():
-        icon = "✅" if status else "❌"
+        icon = OK if status else ERR
         print(f"{icon} {component.upper()}: {'OK' if status else 'FALLO'}")
         if not status:
             all_ok = False
 
     print("="*50)
     if all_ok:
-        print("🚀 ATLAS listo para procesar documentos")
+        print(">> ATLAS listo para procesar documentos")
     else:
-        print("⚠️  Resuelve los fallos antes de ejecutar el pipeline")
+        print(">> Resuelve los fallos antes de ejecutar el pipeline")
     print("="*50 + "\n")
     
     return all_ok
