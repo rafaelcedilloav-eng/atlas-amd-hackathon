@@ -190,7 +190,7 @@ async def get_result(document_id: str):
         raise HTTPException(status_code=500, detail="Error interno al obtener el resultado.")
 
 
-@app.get("/audits", dependencies=[Depends(_require_api_key)])
+@app.get("/audit-list", dependencies=[Depends(_require_api_key)])
 async def list_audits(limit: int = Query(default=20, ge=1, le=100)):
     """Lista las últimas N auditorías (máximo 100)."""
     try:

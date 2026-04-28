@@ -55,7 +55,7 @@ export const atlasApi = {
   },
 
   getAudits: async (limit = 20): Promise<{ audits: AuditListItem[]; total: number }> => {
-    const res = await fetch(`${API_BASE_URL}/audits?limit=${limit}`, {
+    const res = await fetch(`${API_BASE_URL}/audit-list?limit=${limit}`, {
       headers: authHeaders(),
     });
     return handleResponse<{ audits: AuditListItem[]; total: number }>(res);
