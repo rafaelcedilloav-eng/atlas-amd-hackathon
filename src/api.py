@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 from src.orchestrator import run_pipeline
 from src.schemas import PipelineResult
-from src.supabase_client import get_client
+from src.supabase_client import get_client, reset_client
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -253,6 +253,7 @@ async def get_stats():
         }
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
+        reset_client()  # fuerza nueva conexión en el próximo request
         return {
             "total_audits": 0,
             "fraud_detected": 0,
