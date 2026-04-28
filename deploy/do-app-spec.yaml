@@ -54,13 +54,13 @@ services:
     value: "https://fkjwaubqwvcereilllow.supabase.co/rest/v1/"
   - key: SUPABASE_SERVICE_KEY
     scope: RUN_AND_BUILD_TIME
-    value: "***REMOVED***"
+    value: "SET_IN_DO_DASHBOARD"
   - key: SUPABASE_ANON_KEY
     scope: RUN_AND_BUILD_TIME
-    value: "***REMOVED***"
+    value: "SET_IN_DO_DASHBOARD"
   - key: ATLAS_API_KEY
     scope: RUN_AND_BUILD_TIME
-    value: "***REMOVED***"
+    value: "SET_IN_DO_DASHBOARD"
   - key: ATLAS_CORS_ORIGINS
     scope: RUN_AND_BUILD_TIME
     value: "https://atlas-hackathon.com,https://www.atlas-hackathon.com,https://atlas-amd-qs5g4.ondigitalocean.app"
@@ -96,7 +96,7 @@ services:
     value: "https://atlas-amd-qs5g4.ondigitalocean.app/api"
   - key: NEXT_PUBLIC_API_KEY
     scope: BUILD_TIME
-    value: "***REMOVED***"
+    value: "SET_IN_DO_DASHBOARD"
   - key: NEXT_PUBLIC_SUPABASE_URL
     scope: BUILD_TIME
     value: "https://fkjwaubqwvcereilllow.supabase.co"

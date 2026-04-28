@@ -76,14 +76,14 @@ Todas las vulnerabilidades del backend fueron corregidas en `src/api.py`:
 
 Variables de seguridad en `.env`:
 ```
-ATLAS_API_KEY=***REMOVED***
+ATLAS_API_KEY=YOUR_ATLAS_API_KEY
 ATLAS_CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 ATLAS_DOCS_DIR=test_documents
 ```
 
 Para llamar a la API desde el frontend, agregar el header:
 ```
-X-API-Key: ***REMOVED***
+X-API-Key: YOUR_ATLAS_API_KEY
 ```
 
 ### Bugs corregidos del pipeline (sesion 2026-04-27, NO re-aplicar)
