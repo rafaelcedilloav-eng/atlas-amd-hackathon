@@ -14,7 +14,6 @@ COPY requirements_server.txt .
 RUN pip install --upgrade pip setuptools wheel && pip install --no-cache-dir -r requirements_server.txt
 
 COPY src/ ./src/
-COPY .env .env
 
 ENV TESSERACT_CMD=/usr/bin/tesseract
 ENV POPPLER_PATH=/usr/bin

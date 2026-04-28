@@ -5,7 +5,10 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-ENV NEXT_PUBLIC_API_URL=https://api.atlas-hackathon.com
+ARG NEXT_PUBLIC_API_URL=https://api.atlas-hackathon.com
+ARG NEXT_PUBLIC_API_KEY
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_KEY=$NEXT_PUBLIC_API_KEY
 RUN npm run build
 
 FROM node:20-alpine AS runner
