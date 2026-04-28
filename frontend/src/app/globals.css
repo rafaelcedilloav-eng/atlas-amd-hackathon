@@ -1,38 +1,92 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  /* Core AMD Colors */
+  --color-amd-red: #ED1C24;
+  --color-amd-red-deep: #B90007;
+  --color-amd-red-bright: #FF2424;
+  --color-amd-black: #000000;
+  --color-amd-white: #FFFFFF;
+
+  /* Technical Grays */
+  --color-amd-gray-950: #0A0A0A;
+  --color-amd-gray-900: #111111;
+  --color-amd-gray-800: #1A1A1A;
+  --color-amd-gray-700: #2A2A2A;
+  --color-amd-gray-500: #6B6B6B;
+  --color-amd-gray-300: #C4C4C4;
+
+  /* Technical Accents */
+  --color-accent-data: #00C2FF;
+  --color-accent-success: #00E676;
+  --color-accent-warning: #FFB300;
+  --color-accent-critical: #ED1C24;
+
+  /* Fonts */
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-ui: "Inter", "Roboto", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+}
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 2, 6, 23;
-  --background-end-rgb: 2, 6, 23;
+  --background: #000000;
+  --foreground: #FFFFFF;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-ui);
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
+  background: #0A0A0A;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  background: #2A2A2A;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #ED1C24;
+}
+
+/* Signature AMD Gradient Glow */
+.amd-glow {
+  background: radial-gradient(ellipse at center, rgba(237,28,36,0.15) 0%, transparent 70%);
+}
+
+/* Technical Card Pattern */
+.card-technical {
+  background: #111111;
+  border: 1px solid #1A1A1A;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-technical::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #ED1C24, transparent);
+  opacity: 0.5;
+}
+
+.card-technical:hover {
+  border-color: #2A2A2A;
+  box-shadow: 0 0 20px rgba(237, 28, 36, 0.1);
 }

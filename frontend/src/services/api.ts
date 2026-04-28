@@ -7,16 +7,33 @@ import {
 } from "@/types/atlas";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+
+const authHeaders = (): HeadersInit => ({
+  "Content-Type": "application/json",
+  "X-API-Key": API_KEY,
+});
+
+const uploadHeaders = (): HeadersInit => ({
+  "X-API-Key": API_KEY,
+});
+
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Error desconocido" }));
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+  return res.json();
+}
 
 export const atlasApi = {
   analyze: async (pdfPath: string): Promise<PipelineResult> => {
     const res = await fetch(`${API_BASE_URL}/analyze`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ pdf_path: pdfPath }),
     });
-    if (!res.ok) throw new Error("Error al analizar el documento");
-    return res.json();
+    return handleResponse<PipelineResult>(res);
   },
 
   uploadFile: async (file: File): Promise<PipelineResult> => {
@@ -24,39 +41,38 @@ export const atlasApi = {
     formData.append("file", file);
     const res = await fetch(`${API_BASE_URL}/upload`, {
       method: "POST",
+      headers: uploadHeaders(),
       body: formData,
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: "Error desconocido" }));
-      throw new Error(err.detail || "Error al subir el archivo");
-    }
-    return res.json();
+    return handleResponse<PipelineResult>(res);
   },
 
   getResult: async (documentId: string): Promise<AtlasAuditRow> => {
-    const res = await fetch(`${API_BASE_URL}/result/${documentId}`);
-    if (!res.ok) throw new Error("Resultado no encontrado");
-    return res.json();
+    const res = await fetch(`${API_BASE_URL}/result/${documentId}`, {
+      headers: authHeaders(),
+    });
+    return handleResponse<AtlasAuditRow>(res);
   },
 
   getAudits: async (limit = 20): Promise<{ audits: AuditListItem[]; total: number }> => {
-    const res = await fetch(`${API_BASE_URL}/audits?limit=${limit}`);
-    if (!res.ok) throw new Error("Error al obtener auditorías");
-    return res.json();
+    const res = await fetch(`${API_BASE_URL}/audits?limit=${limit}`, {
+      headers: authHeaders(),
+    });
+    return handleResponse<{ audits: AuditListItem[]; total: number }>(res);
   },
 
   getStats: async (): Promise<StatsResponse> => {
+    // /stats es público — no requiere API key
     const res = await fetch(`${API_BASE_URL}/stats`);
-    if (!res.ok) throw new Error("Error al obtener estadísticas");
-    return res.json();
+    return handleResponse<StatsResponse>(res);
   },
 
   submitDecision: async (documentId: string, decision: HumanDecision): Promise<void> => {
     const res = await fetch(`${API_BASE_URL}/human_decision`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ document_id: documentId, decision }),
     });
-    if (!res.ok) throw new Error("Error al registrar decisión");
+    return handleResponse<void>(res);
   },
 };

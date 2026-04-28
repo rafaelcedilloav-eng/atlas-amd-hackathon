@@ -1,0 +1,100 @@
+Configuración AMD en consola
+
+# 1. Quitar candados por si acaso
+chattr -i /etc/hosts
+chattr -i /etc/resolv.conf
+
+o
+
+curl -s ifconfig.me -----> ssh root@(IP QUE MOSTRO) ----->
+
+chattr -i /etc/hosts 2>/dev/null; chattr -i /etc/resolv.conf 2>/dev/null
+
+echo "185.199.108.153 download.vllm.ai" >> /etc/hosts
+echo "185.199.109.153 download.vllm.ai" >> /etc/hosts
+echo "185.199.110.153 download.vllm.ai" >> /etc/hosts
+echo "185.199.111.153 download.vllm.ai" >> /etc/hosts
+
+printf "nameserver 1.1.1.1\nnameserver 8.8.8.8\n" > /etc/resolv.conf
+chattr +i /etc/resolv.conf ---------->
+
+docker rm -f rocm 2>/dev/null || true
+docker rm -f vllm-atlas 2>/dev/null || true
+sudo fuser -k 8000/tcp 2>/dev/null || true
+sudo systemctl restart docker
+mkdir -p /mnt/scratch/huggingface ---------->
+
+docker pull vllm/vllm-openai-rocm:v0.17.1 ------>
+
+docker run -d --name vllm-atlas \
+  --device=/dev/kfd \
+  --device=/dev/dri \
+  --group-add video \
+  --group-add render \
+  --ipc=host \
+  --cap-add=SYS_PTRACE \
+  --security-opt seccomp=unconfined \
+  -v /mnt/scratch/huggingface:/root/.cache/huggingface \
+  -p 8000:8000 \
+  -e HF_HOME=/root/.cache/huggingface \
+  -e ROCR_VISIBLE_DEVICES=0 \
+  -e HIP_VISIBLE_DEVICES=0 \
+  -e HSA_ENABLE_SDMA=0 \
+  -e PYTORCH_ROCM_ARCH=gfx942 \
+  vllm/vllm-openai-rocm:v0.17.1 \
+  --model deepseek-ai/DeepSeek-R1-Distill-Qwen-32B \
+  --tensor-parallel-size 1 \
+  --max-model-len 8192 \
+  --gpu-memory-utilization 0.90 ------>
+
+ docker ps | grep vllm-atlas (debe arrojar el proyecto) ---->
+
+SE ABRE UNA SEGUNDA TERMINAL
+AQUI MONITOREAREMOS LA RAM
+
+ssh root@165.245.138.52 -----> watch -n 3 'rocm-smi --showmeminfo vram'
+
+SE VUELVE A PRIMERA RAM
+
+docker logs --follow vllm-atlas -----> al finalizar instalación 
+curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+    "messages": [{"role": "user", "content": "Hola, funciona?"}],
+    "max_tokens": 50
+  }'
+
+
+# 2. Inyectar las IPs de GitHub Pages para vLLM
+echo "185.199.108.153 download.vllm.ai" >> /etc/hosts
+echo "185.199.109.153 download.vllm.ai" >> /etc/hosts
+echo "185.199.110.153 download.vllm.ai" >> /etc/hosts
+echo "185.199.111.153 download.vllm.ai" >> /etc/hosts
+
+# 3. Asegurar el DNS de emergencia
+printf "nameserver 1.1.1.1\nnameserver 8.8.8.8\n" > /etc/resolv.conf
+chattr +i /etc/resolv.conf
+
+#4 Prueba PING
+
+ping -c 3 download.vllm.ai
+
+
+#5 Forzar instalación
+
+pip install vllm==0.7.2 \
+  --extra-index-url https://download.vllm.ai/wheels/rocm \
+  --trusted-host download.vllm.ai \
+  --no-cache-dir \
+  --break-system-packages
+
+UUID del disco
+
+UUID="37b4c02a-f373-411d-95b0-28a6812f8157"
+
+root@0:~# docker exec vllm-atlas rocm-smi --showbus
+Error response from daemon: container 963946444d396e839857b2506c37e5f9e341dcc2e056b3c95ee8faad5b08309c is not running
+
+963946444d396e839857b2506c37e5f9e341dcc2e056b3c95ee8faad5b08309c
+
