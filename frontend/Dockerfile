@@ -5,7 +5,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-ARG NEXT_PUBLIC_API_URL=https://api.atlas-hackathon.com
+ARG NEXT_PUBLIC_API_URL=https://atlas-amd-qs5g4.ondigitalocean.app
 ARG NEXT_PUBLIC_API_KEY
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_KEY=$NEXT_PUBLIC_API_KEY
