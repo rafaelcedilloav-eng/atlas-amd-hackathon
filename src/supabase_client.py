@@ -5,6 +5,7 @@ Todos los módulos importan desde aquí — nunca instancian su propio cliente.
 import os
 import logging
 from supabase import create_client, Client
+from supabase.lib.client_options import ClientOptions
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -22,6 +23,17 @@ def get_client() -> Client:
             raise EnvironmentError(
                 "SUPABASE_URL y SUPABASE_SERVICE_KEY son requeridas en .env"
             )
-        _client = create_client(url, key)
+        # headers fuerzan HTTP/1.1 — evita StreamReset en entornos cloud (DO, Render)
+        _client = create_client(
+            url,
+            key,
+            options=ClientOptions(headers={"Connection": "keep-alive"}),
+        )
         logger.info(f"Supabase client inicializado → {url}")
     return _client
+
+
+def reset_client() -> None:
+    """Fuerza re-creación del cliente en el próximo get_client()."""
+    global _client
+    _client = None
