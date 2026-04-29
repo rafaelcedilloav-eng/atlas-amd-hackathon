@@ -23,6 +23,7 @@ export default function LandingPage() {
   const [agentName, setAgentName] = useState("Vision_Agent");
   const [progress, setProgress]   = useState(0);
   const [logs, setLogs]           = useState<string[]>([]);
+  const [glitching, setGlitching] = useState(false);
 
   // Binary rain canvas
   useEffect(() => {
@@ -136,6 +137,7 @@ export default function LandingPage() {
     setLogs([]);
     setProgress(0);
 
+    let currentProgress = 0;
     for (let i = 0; i < AGENTS.length; i++) {
       const agent = AGENTS[i];
       setAgentName(agent.name);
@@ -147,11 +149,14 @@ export default function LandingPage() {
         await sleep(600);
       }
       const targetPct = ((i + 1) / AGENTS.length) * 100;
-      await animateProgress(setProgress, targetPct);
+      await animateProgress(setProgress, currentProgress, targetPct);
+      currentProgress = targetPct;
     }
 
     setPhase("done");
-    await sleep(800);
+    await sleep(500);
+    setGlitching(true);
+    await sleep(1000);
     router.push("/dashboard");
   }
 
@@ -161,6 +166,45 @@ export default function LandingPage() {
       <canvas ref={rainRef} className="absolute inset-0 z-0 opacity-40" />
       {/* Three.js */}
       <div ref={containerRef} className="absolute inset-0 z-[1]" />
+
+      {/* Glitch transition overlay */}
+      {glitching && (
+        <div className="absolute inset-0 z-[100] overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 bg-black animate-[glitch-overlay-in_0.2s_ease-out_forwards]" />
+          <div className="absolute inset-0 bg-red-600/50 animate-[glitch-rgb-bars_0.9s_steps(1)_forwards]" />
+          <div
+            className="absolute left-0 right-0 h-px bg-red-500"
+            style={{ top: 0, boxShadow: "0 0 20px #ED1C24, 0 0 50px #ED1C24", animation: "glitch-scan-line 0.65s ease-in forwards" }}
+          />
+          {[
+            { top: "17%", delay: "0.04s" }, { top: "44%", delay: "0.11s" },
+            { top: "63%", delay: "0.07s" }, { top: "81%", delay: "0.15s" },
+          ].map((bar, i) => (
+            <div
+              key={i}
+              className="absolute left-0 right-0 bg-red-400/60"
+              style={{ top: bar.top, height: "1px", opacity: 0, animation: `glitch-hbar 0.7s steps(1) ${bar.delay} forwards` }}
+            />
+          ))}
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-4"
+            style={{ animation: "glitch-text-in 0.95s ease-out forwards" }}
+          >
+            <div className="font-mono text-[9px] text-red-400/80 tracking-[0.6em] uppercase">
+              Neural_Handoff_Initiated
+            </div>
+            <div
+              className="text-[2.8rem] font-black uppercase tracking-tighter text-white"
+              style={{ textShadow: "0 0 40px #ED1C24, 3px 0 0 rgba(237,28,36,0.6), -3px 0 0 rgba(0,80,255,0.35)" }}
+            >
+              ACCESS GRANTED
+            </div>
+            <div className="font-mono text-[9px] text-white/30 tracking-[0.3em]">
+              → LOADING MISSION CONTROL...
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* UI overlay */}
       <div className="absolute inset-0 z-10 flex flex-col p-10 pointer-events-none">
@@ -264,6 +308,40 @@ export default function LandingPage() {
           0%   { background-position: -200% center; }
           100% { background-position:  200% center; }
         }
+        @keyframes glitch-overlay-in {
+          0%   { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        @keyframes glitch-rgb-bars {
+          0%   { opacity: 0; clip-path: inset(0 0 100% 0); transform: translateX(0); }
+          8%   { opacity: 0.55; clip-path: inset(22% 0 72% 0); transform: translateX(-8px); }
+          16%  { opacity: 0.45; clip-path: inset(58% 0 36% 0); transform: translateX(6px); }
+          24%  { opacity: 0.6;  clip-path: inset(8% 0 86% 0);  transform: translateX(-5px); }
+          32%  { opacity: 0.35; clip-path: inset(74% 0 20% 0); transform: translateX(10px); }
+          40%  { opacity: 0.4;  clip-path: inset(40% 0 55% 0); transform: translateX(-6px); }
+          50%  { opacity: 0.25; clip-path: inset(88% 0 10% 0); transform: translateX(4px); }
+          65%  { opacity: 0.15; clip-path: inset(15% 0 82% 0); transform: translateX(-3px); }
+          80%  { opacity: 0.05; }
+          100% { opacity: 0; }
+        }
+        @keyframes glitch-scan-line {
+          0%   { transform: translateY(0vh); opacity: 1; }
+          100% { transform: translateY(100vh); opacity: 0.2; }
+        }
+        @keyframes glitch-hbar {
+          0%, 100% { opacity: 0; transform: translateX(0); }
+          15%  { opacity: 0.9; transform: translateX(-12px); }
+          35%  { opacity: 0.7; transform: translateX(9px); }
+          55%  { opacity: 0.5; transform: translateX(-5px); }
+          75%  { opacity: 0.3; transform: translateX(7px); }
+          90%  { opacity: 0.1; }
+        }
+        @keyframes glitch-text-in {
+          0%, 32%  { opacity: 0; transform: skewX(-6deg) scale(0.96); }
+          38%      { opacity: 1; transform: skewX(4deg) scale(1.03); }
+          44%      { opacity: 0.9; transform: skewX(-2deg) scale(0.99); }
+          50%, 100% { opacity: 1; transform: skewX(0deg) scale(1); }
+        }
       `}</style>
     </div>
   );
@@ -273,11 +351,10 @@ function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms));
 }
 
-function animateProgress(setter: (v: number) => void, target: number): Promise<void> {
+function animateProgress(setter: (v: number) => void, from: number, target: number): Promise<void> {
   return new Promise((resolve) => {
-    const start   = Date.now();
+    const start    = Date.now();
     const duration = 1500;
-    const from     = 0;
 
     function tick() {
       const elapsed = Date.now() - start;
