@@ -22,18 +22,18 @@ from src.supabase_client import get_client, reset_client
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-# ── Configuración de seguridad ─────────────────────────────────────────────────
+# ── Security configuration ────────────────────────────────────────────────────
 
 _API_KEY = os.getenv("ATLAS_API_KEY", "")
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-# Directorio raíz permitido para /analyze (solo archivos dentro de aquí)
+# Root directory allowed for /analyze (only files inside this path)
 _ALLOWED_ANALYZE_DIR = Path(os.getenv("ATLAS_DOCS_DIR", "test_documents")).resolve()
 
-# Límite de tamaño para uploads: 20 MB
+# Upload size limit: 20 MB
 _MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
-# Origins permitidos (ajustar en producción)
+# Allowed CORS origins (adjust for production)
 _ALLOWED_ORIGINS = os.getenv(
     "ATLAS_CORS_ORIGINS",
     "http://localhost:3000,http://localhost:5173"
@@ -41,32 +41,32 @@ _ALLOWED_ORIGINS = os.getenv(
 
 
 def _require_api_key(key: str = Depends(_api_key_header)):
-    """Valida X-API-Key si ATLAS_API_KEY está configurada en .env."""
+    """Validates X-API-Key if ATLAS_API_KEY is configured in .env."""
     if not _API_KEY:
-        return  # Sin key configurada — modo dev, sin auth (solo para localhost)
+        return  # No key configured — dev mode, no auth (localhost only)
     if key != _API_KEY:
-        raise HTTPException(status_code=401, detail="API key inválida o ausente.")
+        raise HTTPException(status_code=401, detail="Invalid or missing API key.")
 
 
 def _safe_path(raw_path: str) -> Path:
     """
-    Resuelve la ruta y verifica que esté dentro del directorio permitido.
-    Mitiga path traversal (../../etc/passwd, etc.).
+    Resolves the path and verifies it is within the allowed directory.
+    Mitigates path traversal attacks (../../etc/passwd, etc.).
     """
     try:
         resolved = Path(raw_path).resolve()
     except Exception:
-        raise HTTPException(status_code=400, detail="Ruta de archivo inválida.")
+        raise HTTPException(status_code=400, detail="Invalid file path.")
 
     if not resolved.is_relative_to(_ALLOWED_ANALYZE_DIR):
         raise HTTPException(
             status_code=400,
-            detail=f"Ruta fuera del directorio permitido. Solo se permiten archivos en: {_ALLOWED_ANALYZE_DIR}"
+            detail=f"Path outside allowed directory. Only files in: {_ALLOWED_ANALYZE_DIR} are permitted."
         )
     if not resolved.exists():
-        raise HTTPException(status_code=404, detail="Archivo no encontrado.")
+        raise HTTPException(status_code=404, detail="File not found.")
     if resolved.suffix.lower() != ".pdf":
-        raise HTTPException(status_code=400, detail="Solo se aceptan archivos PDF.")
+        raise HTTPException(status_code=400, detail="Only PDF files accepted.")
     return resolved
 
 
@@ -122,23 +122,23 @@ async def analyze_document(req: AnalyzeRequest):
 @app.post("/upload", response_model=PipelineResult, dependencies=[Depends(_require_api_key)])
 async def upload_document(file: UploadFile = File(...)):
     """Acepta un PDF como multipart/form-data, lo procesa y retorna el resultado."""
-    # 1. Validar extensión del filename
+    # 1. Validate file extension
     if not (file.filename or "").lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Solo se aceptan archivos PDF.")
+        raise HTTPException(status_code=400, detail="Only PDF files accepted.")
 
-    # 2. Leer contenido con límite de tamaño
+    # 2. Read content with size limit
     content = await file.read(_MAX_UPLOAD_BYTES + 1)
     if len(content) > _MAX_UPLOAD_BYTES:
         raise HTTPException(
             status_code=413,
-            detail=f"Archivo demasiado grande. Máximo permitido: {_MAX_UPLOAD_BYTES // 1024 // 1024} MB."
+            detail=f"File too large. Maximum allowed: {_MAX_UPLOAD_BYTES // 1024 // 1024} MB."
         )
 
-    # 3. Validar magic bytes (contenido real de PDF)
+    # 3. Validate PDF magic bytes
     if not _validate_pdf_magic(content):
-        raise HTTPException(status_code=400, detail="El archivo no es un PDF válido.")
+        raise HTTPException(status_code=400, detail="Not a valid PDF file.")
 
-    # 4. Sanitizar filename antes de escribir al disco
+    # 4. Sanitize filename before writing to disk
     safe_name = _safe_filename(file.filename or "upload.pdf")
     tmp_dir = Path(tempfile.gettempdir()) / "atlas_uploads"
     tmp_dir.mkdir(exist_ok=True)
@@ -158,10 +158,10 @@ async def upload_document(file: UploadFile = File(...)):
 
 @app.get("/result/{document_id}", dependencies=[Depends(_require_api_key)])
 async def get_result(document_id: str):
-    """Retorna el resultado de una auditoría por doc_id."""
+    """Returns the audit result for a given doc_id."""
     # Validar que document_id sea un hash SHA256 válido (64 hex chars)
     if not re.fullmatch(r"[a-f0-9]{64}", document_id):
-        raise HTTPException(status_code=400, detail="document_id inválido.")
+        raise HTTPException(status_code=400, detail="Invalid document_id.")
     try:
         sb = get_client()
         resp = (
@@ -172,7 +172,7 @@ async def get_result(document_id: str):
             .execute()
         )
         if not resp.data:
-            raise HTTPException(status_code=404, detail="Resultado no encontrado.")
+            raise HTTPException(status_code=404, detail="Result not found.")
         row = resp.data[0]
         return {
             "document_id": row["doc_id"],
@@ -187,34 +187,81 @@ async def get_result(document_id: str):
         raise
     except Exception as e:
         logger.error(f"Error fetching result {document_id}: {e}")
-        raise HTTPException(status_code=500, detail="Error interno al obtener el resultado.")
+        raise HTTPException(status_code=500, detail="Error fetching result.")
 
 
 @app.get("/audit-list", dependencies=[Depends(_require_api_key)])
-async def list_audits(limit: int = Query(default=20, ge=1, le=100)):
-    """Lista las últimas N auditorías (máximo 100)."""
+async def list_audits(
+    limit: int = Query(default=20, ge=1, le=100),
+    search: str | None = Query(default=None, max_length=100),
+    severity: str | None = Query(default=None),
+):
+    """Lists the last N audits (max 100). Supports full-text search and severity filter."""
     try:
         sb = get_client()
-        resp = (
+        # Pull a larger pool when searching so client-side filter can find enough results
+        fetch_limit = 300 if search else limit
+
+        query = (
             sb.table("audit_results")
             .select(
                 "doc_id, fraud_type, fraud_classification, severity, "
                 "confidence_score, final_status, recommended_action, "
-                "is_duplicate, is_blacklisted, created_at"
+                "is_duplicate, is_blacklisted, created_at, result_json"
             )
             .order("created_at", desc=True)
-            .limit(limit)
-            .execute()
+            .limit(fetch_limit)
         )
-        return {"audits": resp.data, "total": len(resp.data)}
+
+        if severity:
+            sev = severity.upper()
+            if sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE"):
+                query = query.eq("severity", sev)
+
+        resp = query.execute()
+
+        processed = []
+        for row in resp.data:
+            # Extract vendor_name safely from nested JSONB
+            vendor_name: str | None = None
+            try:
+                rj = row.get("result_json") or {}
+                ef = (rj.get("vision") or {}).get("extracted_fields") or {}
+                vn = ef.get("vendor_name") or {}
+                vendor_name = str(vn["value"]) if isinstance(vn, dict) and vn.get("value") else None
+            except Exception:
+                pass
+
+            record = {k: v for k, v in row.items() if k != "result_json"}
+            record["vendor_name"] = vendor_name
+
+            if search:
+                needle = search.strip().lower()
+                haystack = " ".join(
+                    s for s in (
+                        vendor_name or "",
+                        record.get("fraud_type") or "",
+                        record.get("fraud_classification") or "",
+                        record.get("doc_id") or "",
+                    )
+                    if s
+                ).lower()
+                if needle not in haystack:
+                    continue
+
+            processed.append(record)
+            if len(processed) >= limit:
+                break
+
+        return {"audits": processed, "total": len(processed)}
     except Exception as e:
         logger.error(f"Error listing audits: {e}")
-        raise HTTPException(status_code=500, detail="Error interno al listar auditorías.")
+        raise HTTPException(status_code=500, detail="Error listing audits.")
 
 
 @app.get("/stats")
 async def get_stats():
-    """Estadísticas agregadas del dashboard. Endpoint público (solo lectura agregada)."""
+    """Aggregated dashboard statistics. Public endpoint (read-only aggregates)."""
     try:
         sb = get_client()
 
@@ -265,21 +312,20 @@ async def get_stats():
 
 @app.post("/human_decision", dependencies=[Depends(_require_api_key)])
 async def human_decision(req: HumanDecisionRequest):
-    """Registra la decisión humana final sobre un documento auditado."""
+    """Records the final human decision for an audited document."""
     valid = ("APPROVE", "REJECT", "REQUEST_MORE_INFO")
     if req.decision not in valid:
-        raise HTTPException(status_code=400, detail=f"decision debe ser uno de {valid}")
-    # Validar que document_id tenga formato SHA256
+        raise HTTPException(status_code=400, detail=f"decision must be one of {valid}")
     if not re.fullmatch(r"[a-f0-9]{64}", req.document_id):
-        raise HTTPException(status_code=400, detail="document_id inválido.")
+        raise HTTPException(status_code=400, detail="Invalid document_id.")
     try:
         sb = get_client()
         sb.table("audit_results").update(
             {"human_decision": req.decision}
         ).eq("doc_id", req.document_id).execute()
     except Exception as e:
-        logger.error(f"Error registrando human_decision: {e}")
-        raise HTTPException(status_code=500, detail="Error al registrar la decisión.")
+        logger.error(f"Error saving human_decision: {e}")
+        raise HTTPException(status_code=500, detail="Error saving decision.")
 
     return {
         "status": "updated",

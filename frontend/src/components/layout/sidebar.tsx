@@ -1,8 +1,21 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { LayoutDashboard, FileSearch, ShieldCheck, Settings, Database, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const NAV_ITEMS = [
+  { href: "/dashboard", label: "Dashboard",     icon: LayoutDashboard, exact: true  },
+  { href: "/audits",    label: "Audits",        icon: FileSearch,      exact: false },
+  { href: "/analytics", label: "Analytics",     icon: Database,        exact: true  },
+  { href: "/hardware",  label: "Hardware",      icon: Cpu,             exact: true  },
+  { href: "/integrity", label: "Integrity Gate", icon: ShieldCheck,     exact: false },
+] as const;
+
 export const Sidebar = () => {
+  const pathname = usePathname();
+
   return (
     <aside className="w-64 h-screen border-r border-amd-gray-800 bg-amd-black flex flex-col p-6 sticky top-0">
       {/* Brand Header */}
@@ -19,30 +32,28 @@ export const Sidebar = () => {
       {/* Main Navigation */}
       <nav className="flex-1 space-y-3">
         <p className="text-[10px] font-mono text-amd-gray-500 uppercase tracking-widest px-4 mb-4">Core_Systems</p>
-        
-        <Link 
-          href="/" 
-          className="flex items-center gap-3 px-4 py-3 rounded bg-amd-red/10 text-amd-red font-bold border border-amd-red/20 group hover:bg-amd-red/20 transition-all duration-300"
-        >
-          <LayoutDashboard className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span className="text-sm uppercase tracking-tight">Dashboard</span>
-        </Link>
-        
-        <Link 
-          href="/audits" 
-          className="flex items-center gap-3 px-4 py-3 rounded text-amd-gray-300 hover:text-white hover:bg-amd-gray-900 border border-transparent hover:border-amd-gray-800 transition-all duration-300 font-medium group"
-        >
-          <FileSearch className="w-5 h-5 group-hover:text-amd-red transition-colors" />
-          <span className="text-sm uppercase tracking-tight">Audits</span>
-        </Link>
-        
-        <Link 
-          href="/integrity" 
-          className="flex items-center gap-3 px-4 py-3 rounded text-amd-gray-300 hover:text-white hover:bg-amd-gray-900 border border-transparent hover:border-amd-gray-800 transition-all duration-300 font-medium group"
-        >
-          <ShieldCheck className="w-5 h-5 group-hover:text-amd-red transition-colors" />
-          <span className="text-sm uppercase tracking-tight">Integrity Gate</span>
-        </Link>
+
+        {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
+          const isActive = exact ? pathname === href : pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded border transition-all duration-300 group",
+                isActive
+                  ? "bg-amd-red/10 text-amd-red font-bold border-amd-red/20"
+                  : "text-amd-gray-300 hover:text-white hover:bg-amd-gray-900 border-transparent hover:border-amd-gray-800 font-medium"
+              )}
+            >
+              <Icon className={cn(
+                "w-5 h-5 transition-all",
+                isActive ? "text-amd-red" : "group-hover:text-amd-red group-hover:scale-110"
+              )} />
+              <span className="text-sm uppercase tracking-tight">{label}</span>
+            </Link>
+          );
+        })}
       </nav>
 
       {/* System Status Section */}
@@ -72,7 +83,13 @@ export const Sidebar = () => {
           </p>
         </div>
 
-        <Link href="/settings" className="flex items-center gap-3 px-4 py-2 text-amd-gray-500 hover:text-amd-red transition-all font-medium text-xs uppercase tracking-tighter">
+        <Link
+          href="/settings"
+          className={cn(
+            "flex items-center gap-3 px-4 py-2 transition-all font-medium text-xs uppercase tracking-tighter",
+            pathname === "/settings" ? "text-amd-red" : "text-amd-gray-500 hover:text-amd-red"
+          )}
+        >
           <Settings className="w-4 h-4" />
           System_Config
         </Link>

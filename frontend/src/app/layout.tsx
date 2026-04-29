@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/sidebar";
+import { ClientShell } from "@/components/layout/client-shell";
 import { Providers } from "@/components/providers";
 
 const inter = Inter({ 
@@ -30,17 +30,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} ${mono.variable} ${spaceGrotesk.variable}`}>
+    <html lang="en" className={`${inter.variable} ${mono.variable} ${spaceGrotesk.variable}`}>
       <body className="bg-amd-black text-white min-h-screen flex font-ui antialiased selection:bg-amd-red selection:text-white">
         <Providers>
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto relative">
-            {/* Subtle Grid Overlay */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
-            <div className="relative z-10">
-              {children}
-            </div>
-          </main>
+          <ClientShell>{children}</ClientShell>
         </Providers>
       </body>
     </html>
