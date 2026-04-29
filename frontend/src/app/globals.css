@@ -90,3 +90,13 @@ h1, h2, h3, h4, h5, h6 {
   border-color: #2A2A2A;
   box-shadow: 0 0 20px rgba(237, 28, 36, 0.1);
 }
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%);  }
+}
+
+@keyframes shimmer-liquid {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}

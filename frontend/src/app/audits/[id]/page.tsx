@@ -425,12 +425,20 @@ function ErrorState({ message }: { message: string }) {
       <p className="text-amd-gray-500 font-mono text-sm max-w-md uppercase tracking-tight leading-relaxed">
         {message}
       </p>
-      <button
-        onClick={() => window.location.reload()}
-        className="px-10 py-4 bg-amd-red text-white font-black text-xs uppercase tracking-widest rounded hover:bg-amd-red-deep transition-all shadow-lg"
-      >
-        Restart Data Channel
-      </button>
+      <div className="flex gap-3">
+        <a
+          href="/audits"
+          className="px-8 py-4 bg-amd-gray-900 border border-amd-gray-800 text-white font-black text-xs uppercase tracking-widest rounded hover:bg-amd-gray-800 transition-all"
+        >
+          ← Back to Audits
+        </a>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-8 py-4 bg-amd-red text-white font-black text-xs uppercase tracking-widest rounded hover:bg-amd-red-deep transition-all shadow-lg"
+        >
+          Retry
+        </button>
+      </div>
     </div>
   );
 }

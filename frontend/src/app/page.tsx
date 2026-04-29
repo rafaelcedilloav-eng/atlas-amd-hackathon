@@ -1,263 +1,292 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { Upload, FileText, Activity, AlertTriangle, ShieldCheck, Cpu } from "lucide-react";
-import { motion } from "framer-motion";
-import { SeverityBadge } from "@/components/ui/severity-badge";
-import { UploadModal } from "@/components/features/upload-modal";
-import { RiskChart } from "@/components/features/risk-chart";
-import { useAtlasStats } from "@/hooks/useAtlasStats";
-import { useRecentAudits } from "@/hooks/useRecentAudits";
-import { formatDate, cn } from "@/lib/utils";
-import { Severity } from "@/types/atlas";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import * as THREE from "three";
+import gsap from "gsap";
 
-export default function Dashboard() {
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const { data: stats, isLoading: statsLoading } = useAtlasStats();
-  const { data: auditsData, isLoading: auditsLoading } = useRecentAudits(8);
+const AGENTS = [
+  { name: "Vision_Agent",   logs: ["> Initializing_OCR", "> Mapping_Context_Z", "> Extracting_Metadata"] },
+  { name: "Reasoning_Unit", logs: ["> Pattern_Match_v4",  "> Running_Cross_Ref",  "> Anomaly_Detected"]   },
+  { name: "Integrity_Gate", logs: ["> Checking_Registry", "> Validating_Signature", "> INTEGRITY_FAILED"] },
+  { name: "Explainer_AI",   logs: ["> Synthesizing_Report", "> Weighting_Severity", "> FINAL_VERDICT_READY"] },
+];
 
-  const recentAudits = auditsData?.audits ?? [];
+export default function LandingPage() {
+  const router = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rainRef      = useRef<HTMLCanvasElement>(null);
+  const threeRef     = useRef<{ core?: THREE.Mesh; renderer?: THREE.WebGLRenderer; animId?: number }>({});
+  const mouseRef     = useRef({ x: 0, y: 0 });
+
+  const [phase, setPhase]         = useState<"intro" | "running" | "done">("intro");
+  const [agentName, setAgentName] = useState("Vision_Agent");
+  const [progress, setProgress]   = useState(0);
+  const [logs, setLogs]           = useState<string[]>([]);
+
+  // Binary rain canvas
+  useEffect(() => {
+    const canvas = rainRef.current as HTMLCanvasElement;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    let animId: number;
+    let drops: number[] = [];
+
+    function init() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const cols = Math.floor(canvas.width / 14);
+      drops = Array.from({ length: cols }, () => Math.random() * -100);
+    }
+
+    function draw() {
+      ctx.fillStyle = "rgba(0,0,0,0.05)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.font = "14px 'JetBrains Mono', monospace";
+      drops.forEach((y, i) => {
+        const ch = Math.floor(Math.random() * 2).toString();
+        const x  = i * 14;
+        const py = y * 14;
+        ctx.fillStyle = "#300000";
+        ctx.fillText(ch, x, py);
+        ctx.fillStyle = Math.random() > 0.9 ? "#ffffff" : "#ED1C24";
+        ctx.fillText(ch, x, py);
+        if (py > canvas.height && Math.random() > 0.975) drops[i] = 0;
+        drops[i]++;
+      });
+      animId = requestAnimationFrame(draw);
+    }
+
+    init();
+    draw();
+    window.addEventListener("resize", init);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener("resize", init); };
+  }, []);
+
+  // Three.js scene
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const scene    = new THREE.Scene();
+    const camera   = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    containerRef.current.appendChild(renderer.domElement);
+    threeRef.current.renderer = renderer;
+
+    const coreGroup = new THREE.Group();
+    const outer = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(2.5, 2),
+      new THREE.MeshStandardMaterial({ color: 0xED1C24, wireframe: true, emissive: 0xED1C24, emissiveIntensity: 0.5, metalness: 1, roughness: 0 })
+    );
+    const inner = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(1.5, 0),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.2 })
+    );
+    coreGroup.add(outer, inner);
+    scene.add(coreGroup);
+    threeRef.current.core = outer;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+    const pl = new THREE.PointLight(0xED1C24, 2, 100);
+    pl.position.set(10, 10, 10);
+    scene.add(pl);
+    camera.position.z = 12;
+
+    const clock = new THREE.Clock();
+    function animate() {
+      threeRef.current.animId = requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      outer.rotation.y += 0.005;
+      outer.scale.setScalar(1 + Math.sin(t * 2) * 0.05);
+      camera.position.x += (mouseRef.current.x * 2 - camera.position.x) * 0.05;
+      camera.position.y += (mouseRef.current.y * 2 - camera.position.y) * 0.05;
+      camera.lookAt(0, 0, 0);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    const onResize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      cancelAnimationFrame(threeRef.current.animId!);
+      renderer.dispose();
+      window.removeEventListener("resize", onResize);
+      if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
+        containerRef.current.removeChild(renderer.domElement);
+      }
+    };
+  }, []);
+
+  // Mouse tracking
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      mouseRef.current.x = (e.clientX / window.innerWidth)  *  2 - 1;
+      mouseRef.current.y = (e.clientY / window.innerHeight) * -2 + 1;
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
+
+  async function runAuditSequence() {
+    setPhase("running");
+    setLogs([]);
+    setProgress(0);
+
+    for (let i = 0; i < AGENTS.length; i++) {
+      const agent = AGENTS[i];
+      setAgentName(agent.name);
+      if (threeRef.current.core) {
+        gsap.to(threeRef.current.core.rotation, { y: threeRef.current.core.rotation.y + Math.PI, duration: 1 });
+      }
+      for (const log of agent.logs) {
+        setLogs((prev) => [log, ...prev]);
+        await sleep(600);
+      }
+      const targetPct = ((i + 1) / AGENTS.length) * 100;
+      await animateProgress(setProgress, targetPct);
+    }
+
+    setPhase("done");
+    await sleep(800);
+    router.push("/dashboard");
+  }
 
   return (
-    <>
-      <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+    <div className="relative w-screen h-screen bg-black overflow-hidden">
+      {/* Binary rain */}
+      <canvas ref={rainRef} className="absolute inset-0 z-0 opacity-40" />
+      {/* Three.js */}
+      <div ref={containerRef} className="absolute inset-0 z-[1]" />
 
-      <div className="p-10 space-y-12 bg-amd-black min-h-screen relative overflow-hidden">
-        {/* Subtle Background Glow */}
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amd-red/5 blur-[120px] rounded-full pointer-events-none" />
-
-        <header className="flex justify-between items-end relative z-10">
+      {/* UI overlay */}
+      <div className="absolute inset-0 z-10 flex flex-col p-10 pointer-events-none">
+        {/* Header */}
+        <header className="flex justify-between items-start pointer-events-auto">
           <div>
-            <h2 className="text-5xl font-black tracking-tighter uppercase text-white">
-              <span className="text-amd-red">ATLAS</span> SYSTEM
-            </h2>
-            <p className="text-amd-gray-500 font-mono text-xs uppercase tracking-[0.3em] mt-2">
-              Deep_Auditor // Forensic_Analysis_Unit
-            </p>
+            <h1 className="text-5xl font-black uppercase italic tracking-tighter bg-gradient-to-r from-white via-gray-300 via-[#ED1C24] via-gray-300 to-white bg-[length:200%_auto] animate-[shimmer-liquid_5s_linear_infinite] bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(237,28,36,0.4)]"
+              style={{ WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              ATLAS_FOR_AMD
+            </h1>
+            <div className="mt-2 font-mono text-[10px] text-white/60 tracking-[0.4em] uppercase">
+              Neural_Forensics // MI300X_Accelerated
+            </div>
           </div>
-          <button
-            onClick={() => setUploadOpen(true)}
-            className="bg-amd-red hover:bg-amd-red-deep text-white font-black py-4 px-8 rounded flex items-center gap-3 transition-all shadow-[0_0_25px_rgba(237,28,36,0.2)] hover:shadow-[0_0_40px_rgba(237,28,36,0.4)] active:scale-95 uppercase text-xs tracking-widest"
-          >
-            <Upload className="w-5 h-5" />
-            New Audit
-          </button>
+          <div className="glass-amd p-5 w-72 text-right border-r-4 border-r-red-600">
+            <div className="text-[9px] text-gray-500 uppercase tracking-widest mb-1">System Integrity</div>
+            <div className="text-xs font-black text-white">AMD_INSTINCT_MI300X // ACTIVE</div>
+            <div className="mt-3 flex justify-end gap-1">
+              {[1, 0.8, 0.4, 0.3].map((op, i) => (
+                <div key={i} className="w-1 h-4 bg-red-600 animate-pulse" style={{ opacity: op }} />
+              ))}
+            </div>
+          </div>
         </header>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative z-10">
-          <StatCard
-            icon={<FileText className="text-white" />}
-            label="Total Audits"
-            value={statsLoading ? "—" : String(stats?.total_audits ?? 0)}
-            subValue="DOC_PROCESSED"
-          />
-          <StatCard
-            icon={<AlertTriangle className="text-amd-red" />}
-            label="Fraud Detected"
-            value={statsLoading ? "—" : String(stats?.fraud_detected ?? 0)}
-            subValue="THREATS_IDENTIFIED"
-            accent
-          />
-          <StatCard
-            icon={<ShieldCheck className="text-accent-success" />}
-            label="Avg. Confidence"
-            value={statsLoading ? "—" : `${stats?.avg_confidence_pct ?? 0}%`}
-            subValue="VALIDATION_SCORE"
-          />
-          <StatCard
-            icon={<Cpu className="text-accent-data" />}
-            label="Inference Latency"
-            value={statsLoading ? "—" : `${((stats?.avg_processing_time_ms ?? 0) / 1000).toFixed(1)}s`}
-            subValue="AMD_MI300X_GFLOPS"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 relative z-10">
-          {/* Recent Activity */}
-          <div className="lg:col-span-2 space-y-6">
-            <h3 className="text-xs font-mono font-bold text-amd-gray-500 uppercase tracking-widest flex items-center gap-3">
-              <Activity className="w-4 h-4 text-amd-red" />
-              Recent_Activity_Monitor
-            </h3>
-
-            <div className="bg-amd-gray-900 border border-amd-gray-800 rounded-lg divide-y divide-amd-gray-800 overflow-hidden shadow-2xl">
-              {auditsLoading ? (
-                [...Array(4)].map((_, i) => (
-                  <div key={i} className="p-6 flex items-center gap-6 animate-pulse">
-                    <div className="w-12 h-12 bg-amd-gray-800 rounded shrink-0" />
-                    <div className="flex-1 space-y-3">
-                      <div className="h-4 bg-amd-gray-800 rounded w-2/5" />
-                      <div className="h-3 bg-amd-gray-800 rounded w-1/4" />
-                    </div>
-                    <div className="h-6 w-20 bg-amd-gray-800 rounded" />
-                  </div>
-                ))
-              ) : recentAudits.length === 0 ? (
-                <div className="p-20 text-center space-y-4">
-                  <div className="w-16 h-16 bg-amd-gray-950 rounded-full flex items-center justify-center mx-auto border border-amd-gray-800">
-                    <FileText className="w-8 h-8 text-amd-gray-700" />
-                  </div>
-                  <p className="text-amd-gray-500 font-mono text-xs uppercase tracking-widest">
-                    Awaiting_Input_Data
-                  </p>
-                  <button
-                    onClick={() => setUploadOpen(true)}
-                    className="text-amd-red text-xs font-bold uppercase tracking-widest hover:underline"
-                  >
-                    Start Inference →
-                  </button>
-                </div>
-              ) : (
-                recentAudits.map((item, i) => (
-                  <motion.div
-                    key={item.doc_id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                  >
-                    <Link
-                      href={`/audits/${item.doc_id}`}
-                      className="p-6 flex items-center justify-between hover:bg-amd-gray-950 transition-all group relative overflow-hidden"
-                    >
-                      <div className="absolute left-0 top-0 bottom-0 w-0 bg-amd-red group-hover:w-1 transition-all" />
-                      
-                      <div className="flex items-center gap-6">
-                        <div className="w-12 h-12 bg-amd-gray-950 border border-amd-gray-800 rounded flex items-center justify-center shrink-0 group-hover:border-amd-red/30 transition-colors">
-                          <FileText className="w-6 h-6 text-amd-gray-500 group-hover:text-amd-red" />
-                        </div>
-                        <div>
-                          <h4 className="font-mono font-bold text-white text-sm tracking-tighter uppercase group-hover:text-amd-red transition-colors">
-                            HEX_{item.doc_id.slice(0, 16)}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-mono text-amd-gray-500 uppercase">
-                              {item.fraud_type || "NO_TRAP"}
-                            </span>
-                            <span className="w-1 h-1 bg-amd-gray-800 rounded-full" />
-                            <span className="text-[10px] font-mono text-amd-red uppercase font-bold">
-                              {item.fraud_classification || "UNCLASSIFIED"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-8">
-                        <SeverityBadge
-                          severity={(item.severity as Severity) ?? "NONE"}
-                        />
-                        <div className="text-right hidden lg:block">
-                          <p className="text-[10px] font-mono text-white/90 uppercase font-bold">
-                            TIMESTAMP
-                          </p>
-                          <p className="text-[10px] font-mono text-amd-gray-500 uppercase">
-                            {formatDate(item.created_at)}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
-                  </motion.div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Risk Distribution */}
-          <div className="space-y-6">
-             <h3 className="text-xs font-mono font-bold text-amd-gray-500 uppercase tracking-widest flex items-center gap-3">
-              Risk_Visualization
-            </h3>
-            <div className="bg-amd-gray-900 border border-amd-gray-800 rounded-lg p-8 h-[380px] shadow-2xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <ShieldCheck className="w-24 h-24 text-amd-red" />
+        {/* Center */}
+        <div className="flex-1 flex flex-col items-center justify-center pointer-events-auto">
+          {phase === "intro" && (
+            <div className="text-center">
+              <div className="font-mono text-[10px] text-white/50 mb-6 tracking-[0.5em] uppercase">
+                Initializing Analysis Theater...
               </div>
-              
-              {statsLoading ? (
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center space-y-4">
-                    <Activity className="w-8 h-8 text-amd-red animate-pulse mx-auto" />
-                    <p className="text-amd-gray-600 font-mono text-[10px] uppercase tracking-widest">Computing_Distribution</p>
-                  </div>
-                </div>
-              ) : stats ? (
-                <RiskChart distribution={stats.distribution} />
-              ) : (
-                <div className="h-full flex items-center justify-center">
-                   <p className="text-amd-gray-600 font-mono text-[10px] uppercase tracking-widest text-center leading-relaxed">
-                    No Telemetry Data<br/>Available
-                  </p>
+              <button
+                onClick={runAuditSequence}
+                className="border border-[#ED1C24] text-[#ED1C24] bg-[rgba(237,28,36,0.05)] px-10 py-4 font-black uppercase tracking-[0.2em] text-lg transition-all duration-300 hover:bg-[#ED1C24] hover:text-white hover:shadow-[0_0_50px_#ED1C24] hover:-translate-y-0.5"
+              >
+                SYSTEM ACCESS
+              </button>
+            </div>
+          )}
+
+          {(phase === "running" || phase === "done") && (
+            <div className="glass-amd w-96 p-6 text-left">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-sm font-black uppercase italic text-red-500">{agentName}</span>
+                <span className="font-mono text-[10px] text-white">{Math.round(progress)}%</span>
+              </div>
+              <div className="h-px w-full bg-red-950 relative overflow-hidden">
+                <div
+                  className="absolute inset-0 bg-red-600 shadow-[0_0_10px_#ED1C24] transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="mt-4 font-mono text-[10px] h-16 overflow-hidden leading-relaxed text-gray-400">
+                {logs.slice(0, 4).map((l, i) => <div key={i}>{l}</div>)}
+              </div>
+              {phase === "done" && (
+                <div className="mt-3 text-center font-mono text-[10px] text-green-400 animate-pulse">
+                  → NAVIGATING TO MISSION CONTROL...
                 </div>
               )}
             </div>
-          </div>
+          )}
         </div>
-        
-        {/* Rafael's Spark - Bottom bar */}
-        <footer className="pt-20 pb-10 flex justify-between items-center opacity-20 hover:opacity-100 transition-opacity">
-          <p className="font-mono text-[9px] text-amd-gray-500 uppercase tracking-[0.4em]">
-            AMD // ROCM_6.16 // DEEPSEEK_R1_ATLAS_V1
-          </p>
-          <p className="font-mono text-[9px] text-amd-gray-500 italic uppercase">
-            "Intelligence is the result of precision at scale."
-          </p>
+
+        {/* Footer stats */}
+        <footer className="grid grid-cols-4 gap-6 pointer-events-auto">
+          {[
+            { label: "Confidence", value: "94.2", unit: "%" },
+            { label: "VRAM Pool",  value: "192",  unit: "GB" },
+            { label: "Latency",    value: "0.08", unit: "ms" },
+            { label: "Threats",    value: "03",   unit: "",   accent: true },
+          ].map((s) => (
+            <div key={s.label} className={`glass-amd p-4 flex flex-col ${s.accent ? "border-r-4 border-r-red-600" : ""}`}>
+              <div className={`text-[9px] uppercase mb-2 ${s.accent ? "text-red-500" : "text-gray-500"}`}>{s.label}</div>
+              <div className={`text-2xl font-black ${s.accent ? "text-red-500" : "text-white"}`}>
+                {s.value}
+                {s.unit && <span className="text-xs text-red-500 ml-1">{s.unit}</span>}
+              </div>
+            </div>
+          ))}
         </footer>
       </div>
-    </>
+
+      <style jsx>{`
+        .glass-amd {
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.05);
+          backdrop-filter: blur(20px);
+          box-shadow: 0 0 40px rgba(0,0,0,0.8);
+          position: relative;
+        }
+        .glass-amd::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 0;
+          width: 3px; height: 100%;
+          background: linear-gradient(to bottom, #ED1C24, transparent);
+        }
+        @keyframes shimmer-liquid {
+          0%   { background-position: -200% center; }
+          100% { background-position:  200% center; }
+        }
+      `}</style>
+    </div>
   );
 }
 
-function StatCard({
-  icon,
-  label,
-  value,
-  subValue,
-  accent = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  subValue?: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className={cn(
-      "p-6 rounded-lg space-y-4 transition-all duration-300 relative overflow-hidden group border",
-      accent 
-        ? "bg-amd-red/5 border-amd-red/20 hover:border-amd-red/50" 
-        : "bg-amd-gray-900 border-amd-gray-800 hover:border-amd-gray-700"
-    )}>
-      {/* Background Glow on Hover */}
-      <div className={cn(
-        "absolute -right-4 -top-4 w-16 h-16 rounded-full blur-2xl transition-opacity opacity-0 group-hover:opacity-20",
-        accent ? "bg-amd-red" : "bg-white"
-      )} />
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
 
-      <div className={cn(
-        "w-10 h-10 rounded flex items-center justify-center transition-transform group-hover:scale-110 duration-500",
-        accent ? "bg-amd-red/20" : "bg-amd-gray-950 border border-amd-gray-800"
-      )}>
-        {icon}
-      </div>
-      
-      <div>
-        <div className="flex justify-between items-start">
-          <p className="text-[10px] text-amd-gray-500 font-mono font-bold uppercase tracking-widest">
-            {label}
-          </p>
-          {subValue && (
-            <span className="text-[8px] font-mono text-amd-red/60 uppercase tracking-tighter">
-              {subValue}
-            </span>
-          )}
-        </div>
-        <p className={cn(
-          "text-4xl font-black tracking-tighter mt-1",
-          accent ? "text-amd-red" : "text-white"
-        )}>
-          {value}
-        </p>
-      </div>
-    </div>
-  );
+function animateProgress(setter: (v: number) => void, target: number): Promise<void> {
+  return new Promise((resolve) => {
+    const start   = Date.now();
+    const duration = 1500;
+    const from     = 0;
+
+    function tick() {
+      const elapsed = Date.now() - start;
+      const t       = Math.min(elapsed / duration, 1);
+      const eased   = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      setter(from + (target - from) * eased);
+      if (t < 1) requestAnimationFrame(tick);
+      else resolve();
+    }
+    tick();
+  });
 }

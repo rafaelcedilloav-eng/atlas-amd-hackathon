@@ -54,8 +54,15 @@ export const atlasApi = {
     return handleResponse<AtlasAuditRow>(res);
   },
 
-  getAudits: async (limit = 20): Promise<{ audits: AuditListItem[]; total: number }> => {
-    const res = await fetch(`${API_BASE_URL}/audit-list?limit=${limit}`, {
+  getAudits: async (
+    limit = 20,
+    search?: string,
+    severity?: string,
+  ): Promise<{ audits: AuditListItem[]; total: number }> => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (search?.trim()) params.set("search", search.trim());
+    if (severity) params.set("severity", severity);
+    const res = await fetch(`${API_BASE_URL}/audit-list?${params}`, {
       headers: authHeaders(),
     });
     return handleResponse<{ audits: AuditListItem[]; total: number }>(res);

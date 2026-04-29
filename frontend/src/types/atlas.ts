@@ -126,6 +126,7 @@ export interface StatsResponse {
 
 export interface AuditListItem {
   doc_id: string;
+  vendor_name: string | null;
   fraud_type: string | null;
   fraud_classification: string | null;
   severity: string | null;
