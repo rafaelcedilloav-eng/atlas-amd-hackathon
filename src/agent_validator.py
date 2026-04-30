@@ -156,16 +156,17 @@ class ValidatorAgent:
             if subtotal is None or total is None:
                 return True, "No se encontraron campos suficientes para validación matemática."
 
-            expected_total = (subtotal + (iva or Decimal("0"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            
+            iva_decimal = iva if isinstance(iva, Decimal) else Decimal("0")
+            expected_total = (subtotal + iva_decimal).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+            from src.config import settings
             diff = abs(total - expected_total)
-            if diff > Decimal("0.05"): # Tolerancia de 5 centavos por redondeos
+            if diff > Decimal(str(settings.math_tolerance)): # Tolerancia configurable
                 return False, f"Total esperado: {expected_total}, Total factura: {total} (Dif: {diff})"
-            
+
             return True, "Cálculos verificados correctamente."
         except Exception as e:
             return False, f"Error en verificación matemática: {e}"
-
     def _to_decimal(self, val) -> Optional[Decimal]:
         if val is None: return None
         try:

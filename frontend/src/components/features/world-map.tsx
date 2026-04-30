@@ -12,8 +12,9 @@ import { scaleLinear } from "d3-scale";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
+// Actualizamos la interfaz para coincidir con el contrato MarketData
 export interface CountryData {
-  country_code: string;
+  country_code: string; // ISO 3166-1 Alpha-2
   country_name: string;
   participation_pct: number;
   status: "Market Entry" | "Expanding" | "Established";
@@ -23,6 +24,7 @@ export interface CountryData {
   risk_level: "low" | "medium" | "high" | "critical";
 }
 
+// Mapeo de estados a colores
 const STATUS_COLORS: Record<string, string> = {
   "Market Entry": "#33B5E5",
   "Expanding": "#FFBB33",
@@ -36,28 +38,29 @@ const RISK_COLORS: Record<string, string> = {
   critical: "#ED1C24",
 };
 
+// Escala para participación
 const colorScale = scaleLinear<string>()
   .domain([0, 20, 40])
   .range(["#1a1a1a", "#ED1C24", "#FF4444"]);
 
-// world-atlas@2 countries-110m.json uses ISO 3166-1 numeric IDs, not ISO_A2 strings
-const NUM_TO_ISO: Record<string, string> = {
-  "4":"AF","8":"AL","12":"DZ","24":"AO","32":"AR","36":"AU","40":"AT",
-  "50":"BD","56":"BE","68":"BO","76":"BR","100":"BG","116":"KH","120":"CM",
-  "124":"CA","152":"CL","156":"CN","170":"CO","188":"CR","191":"HR",
-  "192":"CU","203":"CZ","208":"DK","218":"EC","818":"EG","231":"ET",
-  "246":"FI","250":"FR","276":"DE","288":"GH","300":"GR","320":"GT",
-  "332":"HT","340":"HN","348":"HU","356":"IN","360":"ID","364":"IR",
-  "368":"IQ","372":"IE","376":"IL","380":"IT","388":"JM","392":"JP",
-  "400":"JO","404":"KE","410":"KR","414":"KW","418":"LA","422":"LB",
-  "434":"LY","458":"MY","484":"MX","504":"MA","508":"MZ","524":"NP",
-  "528":"NL","554":"NZ","558":"NI","566":"NG","578":"NO","586":"PK",
-  "591":"PA","598":"PG","600":"PY","604":"PE","608":"PH","616":"PL",
-  "620":"PT","630":"PR","634":"QA","642":"RO","643":"RU","682":"SA",
-  "686":"SN","694":"SL","706":"SO","710":"ZA","724":"ES","752":"SE",
-  "756":"CH","760":"SY","764":"TH","788":"TN","792":"TR","800":"UG",
-  "804":"UA","784":"AE","826":"GB","840":"US","858":"UY","862":"VE",
-  "704":"VN","887":"YE","894":"ZM","716":"ZW",
+// Mapeo inverso de ISO a numérico para búsquedas eficientes
+const ISO_TO_NUM: Record<string, string> = {
+  "AF":"4","AL":"8","DZ":"12","AO":"24","AR":"32","AU":"36","AT":"40",
+  "BD":"50","BE":"56","BO":"68","BR":"76","BG":"100","KH":"116","CM":"120",
+  "CA":"124","CL":"152","CN":"156","CO":"170","CR":"188","HR":"191",
+  "CU":"192","CZ":"203","DK":"208","EC":"218","EG":"818","ET":"231",
+  "FI":"246","FR":"250","DE":"276","GH":"288","GR":"300","GT":"320",
+  "HT":"332","HN":"340","HU":"348","IN":"356","ID":"360","IR":"364",
+  "IQ":"368","IE":"372","IL":"376","IT":"380","JM":"388","JP":"392",
+  "JO":"400","KE":"404","KR":"410","KW":"414","LA":"418","LB":"422",
+  "LY":"434","MY":"458","MX":"484","MA":"504","MZ":"508","NP":"524",
+  "NL":"528","NZ":"554","NI":"558","NG":"566","NO":"578","PK":"586",
+  "PA":"591","PG":"598","PY":"600","PE":"604","PH":"608","PL":"616",
+  "PT":"620","PR":"630","QA":"634","RO":"642","RU":"643","SA":"682",
+  "SN":"686","SL":"694","SO":"706","ZA":"710","ES":"724","SE":"752",
+  "CH":"756","SY":"760","TH":"764","TN":"788","TR":"792","UG":"800",
+  "UA":"804","AE":"784","GB":"826","US":"840","UY":"858","VE":"862",
+  "VN":"704","YE":"887","ZM":"894","ZW":"716"
 };
 
 export default function WorldMap({ data }: { data?: CountryData[] }) {
@@ -67,9 +70,14 @@ export default function WorldMap({ data }: { data?: CountryData[] }) {
 
   const activeData = data || [];
 
+  // Optimizamos el mapeo de datos usando useMemo
   const dataMap = useMemo(() => {
     const map: Record<string, CountryData> = {};
-    activeData.forEach((d) => (map[d.country_code] = d));
+    activeData.forEach((d) => {
+      if (d.country_code && d.country_code.length === 2) {
+        map[d.country_code.toUpperCase()] = d;
+      }
+    });
     return map;
   }, [activeData]);
 
@@ -96,43 +104,45 @@ export default function WorldMap({ data }: { data?: CountryData[] }) {
         {/* Country List */}
         <div className="w-56 border-r border-[#333] overflow-y-auto bg-black/20">
           <div className="p-3 space-y-2">
-            {[...activeData].sort((a, b) => b.participation_pct - a.participation_pct).map((country) => (
-              <motion.button
-                key={country.country_code}
-                onClick={() => setSelectedCountry(country)}
-                className={`w-full text-left p-2.5 rounded border transition-all ${
-                  selectedCountry?.country_code === country.country_code
-                    ? "border-[#ED1C24] bg-[#ED1C24]/10"
-                    : "border-[#333] bg-[#1a1a1a]/50 hover:border-[#555]"
-                }`}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-mono text-white font-bold">
-                    {country.country_code} {country.country_name}
-                  </span>
-                  <span
-                    className="text-[11px] font-mono font-black"
-                    style={{ color: colorScale(country.participation_pct) }}
-                  >
-                    {country.participation_pct}%
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold"
-                    style={{
-                      backgroundColor: `${STATUS_COLORS[country.status]}20`,
-                      color: STATUS_COLORS[country.status],
-                      border: `1px solid ${STATUS_COLORS[country.status]}40`,
-                    }}
-                  >
-                    {country.status.toUpperCase()}
-                  </span>
-                </div>
-              </motion.button>
-            ))}
+            {[...activeData]
+              .sort((a, b) => b.participation_pct - a.participation_pct)
+              .map((country) => (
+                <motion.button
+                  key={country.country_code}
+                  onClick={() => setSelectedCountry(country)}
+                  className={`w-full text-left p-2.5 rounded border transition-all ${
+                    selectedCountry?.country_code === country.country_code
+                      ? "border-[#ED1C24] bg-[#ED1C24]/10"
+                      : "border-[#333] bg-[#1a1a1a]/50 hover:border-[#555]"
+                  }`}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-mono text-white font-bold">
+                      {country.country_code} {country.country_name}
+                    </span>
+                    <span
+                      className="text-[11px] font-mono font-black"
+                      style={{ color: colorScale(country.participation_pct) }}
+                    >
+                      {country.participation_pct}%
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold"
+                      style={{
+                        backgroundColor: `${STATUS_COLORS[country.status]}20`,
+                        color: STATUS_COLORS[country.status],
+                        border: `1px solid ${STATUS_COLORS[country.status]}40`,
+                      }}
+                    >
+                      {country.status.toUpperCase()}
+                    </span>
+                  </div>
+                </motion.button>
+              ))}
           </div>
         </div>
 
@@ -147,14 +157,19 @@ export default function WorldMap({ data }: { data?: CountryData[] }) {
               <Geographies geography={GEO_URL}>
                 {({ geographies }) =>
                   geographies.map((geo) => {
-                    const iso = NUM_TO_ISO[String(geo.id)] ?? null;
-                    const countryData = iso ? dataMap[iso] : undefined;
+                    // Convertimos el ID numérico a código ISO
+                    const isoCode = ISO_TO_NUM[geo.properties.ISO_A2] 
+                      ? geo.properties.ISO_A2 
+                      : Object.keys(ISO_TO_NUM).find(key => ISO_TO_NUM[key] === String(geo.id));
+                    
+                    // Obtenemos los datos del país si existen
+                    const countryData = isoCode ? dataMap[isoCode.toUpperCase()] : undefined;
 
                     return (
                       <Geography
                         key={geo.rsmKey}
                         geography={geo}
-                        onMouseEnter={() => iso && setHoveredCountry(iso)}
+                        onMouseEnter={() => isoCode && setHoveredCountry(isoCode.toUpperCase())}
                         onMouseLeave={() => setHoveredCountry(null)}
                         onClick={() => countryData && setSelectedCountry(countryData)}
                         style={{
