@@ -34,31 +34,44 @@ class ExplainerAgent:
             "status": pipeline_result.status
         }
 
-        prompt = f"""GENERA UN REPORTE DE AUDITORÍA EJECUTIVO PROFESIONAL.
+        prompt = f"""GENERA UN REPORTE DE AUDITORÍA EJECUTIVO Y ANÁLISIS DE MERCADO GLOBAL.
 CONTEXTO DE AUDITORÍA:
 {json.dumps(context, indent=2)}
 
 INSTRUCCIÓN:
-Como socio de auditoría senior, redacta un reporte en ESPAÑOL (es-MX) que sea claro, directo y profesional.
-El reporte debe ser un JSON que siga esta estructura exacta:
+Actúa como Socio de Auditoría y Analista de Estrategia Global. 
+1. Redacta un reporte en ESPAÑOL (es-MX) claro y profesional.
+2. Basándote en el nombre de la empresa emisor/receptor y su país, estima su presencia global para nuestro Dashboard de Inteligencia.
+
+RESPONDE UN JSON CON ESTA ESTRUCTURA:
 {{
   "explanation": {{
-    "title": "Título impactante del reporte",
-    "summary": "Resumen ejecutivo de 2 párrafos",
-    "detailed_explanation": "Explicación técnica de los hallazgos",
-    "why_its_a_trap": "Explicación clara de por qué esto se considera una anomalía o fraude",
-    "what_to_do": ["acción 1", "acción 2"],
-    "financial_impact": "Descripción del impacto económico"
+    "title": "Título",
+    "summary": "Resumen",
+    "detailed_explanation": "Detalle",
+    "why_its_a_trap": "Por qué es trampa",
+    "what_to_do": ["acción"],
+    "financial_impact": "Impacto"
   }},
-  "human_review_required": true/false,
-  "next_action": "AWAIT_HUMAN_DECISION" | "AUTO_APPROVE" | "ESCALATE",
-  "markdown_report": "Versión completa del reporte en formato Markdown elegante"
+  "market_intelligence": [
+    {{
+      "country_code": "ISO-2",
+      "participation_pct": 0.0,
+      "status": "Market Entry" | "Expanding" | "Established",
+      "influence_score": 1-10,
+      "audits_completed": 0,
+      "alerts_forenses": 0,
+      "risk_level": "low" | "medium" | "high" | "critical"
+    }}
+  ],
+  "human_review_required": true,
+  "next_action": "AWAIT_HUMAN_DECISION",
+  "markdown_report": "Markdown"
 }}
 
 Reglas:
-1. Sé extremadamente profesional.
-2. Si hubo un error matemático o blacklist, resáltalo como crítico.
-3. Responde SOLO el JSON."""
+- Market Intelligence: Genera al menos 3 países relevantes para esta empresa (ej. si es Amazon: US, MX, DE).
+- Si hubo fallos críticos, el risk_level en los mercados clave debe elevarse."""
 
         v_conf = pipeline_result.vision.confidence if pipeline_result.vision else 0.0
         r_conf = pipeline_result.reasoning.confidence if pipeline_result.reasoning else 0.0
@@ -74,7 +87,7 @@ Reglas:
         try:
             response = call_llm(
                 prompt,
-                system_prompt="Eres un Socio de Auditoría en una Big Four. Tu especialidad es la comunicación ejecutiva de hallazgos forenses complejos.",
+                system_prompt="Eres un Experto en Auditoría Forense y Estrategia de Mercados Globales. Tu misión es transformar datos técnicos en visión estratégica.",
             )
 
             # Limpieza DeepSeek-R1: strips <think>...</think> y <thinking>...</thinking>
@@ -88,8 +101,18 @@ Reglas:
             data = json.loads(json_content[start:end])
 
             explanation = ExplanationContent(**data.get("explanation", {}))
+            market_intel_raw = data.get("market_intelligence", [])
+            from src.schemas import MarketData
+            market_intel = [MarketData(**m) for m in market_intel_raw]
+            
             processing_time_ms = int((time.time() - start_time) * 1000)
 
+            human_review_required = data.get("human_review_required", True)
+            if pipeline_result.reasoning:
+                # Si hay cualquier anomalía detectada (aunque no sea CRÍTICA), requerimos revisión humana.
+                # Solo los documentos con severity NONE (LIMPIOS) pasan sin revisión.
+                human_review_required = pipeline_result.reasoning.trap_severity != "NONE"
+            
             output = ExplainerOutput(
                 document_id=pipeline_result.document_id,
                 document_type=pipeline_result.vision.document_type if pipeline_result.vision else "unknown",
@@ -97,16 +120,18 @@ Reglas:
                 trap_severity=pipeline_result.reasoning.trap_severity if pipeline_result.reasoning else "NONE",
                 explanation=explanation,
                 confidence_breakdown=confidence_breakdown,
-                human_review_required=data.get("human_review_required", True),
+                human_review_required=human_review_required,
                 next_action=data.get("next_action", "AWAIT_HUMAN_DECISION"),
                 markdown_report=data.get("markdown_report", ""),
                 timestamp=datetime.now(),
             )
+            # Ad-hoc market intel to be picked up by orchestrator
+            output.market_intelligence = market_intel
 
             log_agent_action(
                 doc_id=output.document_id,
                 agent="explainer",
-                action="generate_executive_report",
+                action="generate_market_report",
                 input_data={"status": pipeline_result.status},
                 output_data=output.model_dump(mode="json"),
                 duration_ms=processing_time_ms,

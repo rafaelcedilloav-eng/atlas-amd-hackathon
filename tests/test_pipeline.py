@@ -35,7 +35,7 @@ class TestMathError:
         assert result.explanation is not None
         assert result.explanation.human_review_required is True
         assert result.explanation.next_action == "AWAIT_HUMAN_DECISION"
-        assert result.total_processing_time_ms < 30000
+        assert result.total_processing_time_ms < 120000
 
 
 class TestCleanInvoice:

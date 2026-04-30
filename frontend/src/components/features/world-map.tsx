@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ComposableMap,
@@ -9,12 +9,11 @@ import {
   ZoomableGroup,
 } from "react-simple-maps";
 import { scaleLinear } from "d3-scale";
-import { interpolateRgb } from "d3-interpolate";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 export interface CountryData {
-  country_code: string;   // ISO 3166-1 alpha-2
+  country_code: string;
   country_name: string;
   participation_pct: number;
   status: "Market Entry" | "Expanding" | "Established";
@@ -24,313 +23,291 @@ export interface CountryData {
   risk_level: "low" | "medium" | "high" | "critical";
 }
 
-interface WorldMapProps {
-  countries: CountryData[];
-  companyName: string;
-}
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-// Maps world-atlas@2 numeric IDs → ISO alpha-2
-// Numeric codes from ISO 3166-1; stored without leading zeros in topojson
-const NUM_TO_ISO: Record<string, string> = {
-  "484": "MX", "840": "US", "156": "CN",
-  "76":  "BR", "076": "BR",
-  "826": "GB", "276": "DE", "250": "FR",
-  "356": "IN", "724": "ES", "392": "JP",
-  "124": "CA",
-};
-
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
-
-const STATUS_COLOR: Record<string, string> = {
+const STATUS_COLORS: Record<string, string> = {
   "Market Entry": "#33B5E5",
-  "Expanding":    "#FFBB33",
-  "Established":  "#00C851",
+  "Expanding": "#FFBB33",
+  "Established": "#00C851",
 };
 
-const RISK_COLOR: Record<string, string> = {
-  low:      "#00C851",
-  medium:   "#FFBB33",
-  high:     "#FF8800",
+const RISK_COLORS: Record<string, string> = {
+  low: "#00C851",
+  medium: "#FFBB33",
+  high: "#FF8800",
   critical: "#ED1C24",
 };
 
-// AMD-red heat scale: black → dark-red → AMD red
-const heatScale = scaleLinear<string>()
-  .domain([0, 15, 35])
-  .range(["#0d0d0d", "#6B0000", "#ED1C24"])
-  .interpolate(interpolateRgb);
+const colorScale = scaleLinear<string>()
+  .domain([0, 20, 40])
+  .range(["#1a1a1a", "#ED1C24", "#FF4444"]);
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// world-atlas@2 countries-110m.json uses ISO 3166-1 numeric IDs, not ISO_A2 strings
+const NUM_TO_ISO: Record<string, string> = {
+  "4":"AF","8":"AL","12":"DZ","24":"AO","32":"AR","36":"AU","40":"AT",
+  "50":"BD","56":"BE","68":"BO","76":"BR","100":"BG","116":"KH","120":"CM",
+  "124":"CA","152":"CL","156":"CN","170":"CO","188":"CR","191":"HR",
+  "192":"CU","203":"CZ","208":"DK","218":"EC","818":"EG","231":"ET",
+  "246":"FI","250":"FR","276":"DE","288":"GH","300":"GR","320":"GT",
+  "332":"HT","340":"HN","348":"HU","356":"IN","360":"ID","364":"IR",
+  "368":"IQ","372":"IE","376":"IL","380":"IT","388":"JM","392":"JP",
+  "400":"JO","404":"KE","410":"KR","414":"KW","418":"LA","422":"LB",
+  "434":"LY","458":"MY","484":"MX","504":"MA","508":"MZ","524":"NP",
+  "528":"NL","554":"NZ","558":"NI","566":"NG","578":"NO","586":"PK",
+  "591":"PA","598":"PG","600":"PY","604":"PE","608":"PH","616":"PL",
+  "620":"PT","630":"PR","634":"QA","642":"RO","643":"RU","682":"SA",
+  "686":"SN","694":"SL","706":"SO","710":"ZA","724":"ES","752":"SE",
+  "756":"CH","760":"SY","764":"TH","788":"TN","792":"TR","800":"UG",
+  "804":"UA","784":"AE","826":"GB","840":"US","858":"UY","862":"VE",
+  "704":"VN","887":"YE","894":"ZM","716":"ZW",
+};
 
-export function WorldMap({ countries, companyName }: WorldMapProps) {
-  const [hovered,  setHovered]  = useState<string | null>(null);
-  const [selected, setSelected] = useState<CountryData | null>(null);
-  const [tooltip,  setTooltip]  = useState({ x: 0, y: 0 });
+export default function WorldMap({ data }: { data?: CountryData[] }) {
+  const [selectedCountry, setSelectedCountry] = useState<CountryData | null>(null);
+  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
-  // Build lookup by alpha-2 code
+  const activeData = data || [];
+
   const dataMap = useMemo(() => {
-    const m: Record<string, CountryData> = {};
-    countries.forEach((c) => { m[c.country_code] = c; });
-    return m;
-  }, [countries]);
+    const map: Record<string, CountryData> = {};
+    activeData.forEach((d) => (map[d.country_code] = d));
+    return map;
+  }, [activeData]);
 
-  const onMove = useCallback((e: React.MouseEvent) => {
-    setTooltip({ x: e.clientX + 14, y: e.clientY - 8 });
-  }, []);
+  const handleMouseMove = (e: React.MouseEvent) => {
+    setTooltipPos({ x: e.clientX + 15, y: e.clientY - 10 });
+  };
 
   return (
-    <div className="relative w-full h-full flex flex-col" onMouseMove={onMove}>
-      <style>{`
-        @keyframes scanSweep {
-          0%   { top: -2px; }
-          100% { top: 100%; }
-        }
-      `}</style>
-
-      {/* Static scanlines */}
-      <div
-        className="absolute inset-0 pointer-events-none z-10"
-        style={{
-          background: "repeating-linear-gradient(transparent 0px, transparent 3px, rgba(237,28,36,0.03) 3px, rgba(237,28,36,0.03) 4px)",
-        }}
-      />
-
-      {/* Animated horizontal sweep line */}
-      <div
-        className="absolute left-0 right-0 h-px pointer-events-none z-10 opacity-60"
-        style={{
-          background: "linear-gradient(to right, transparent, #ED1C24, transparent)",
-          animation: "scanSweep 4s linear infinite",
-        }}
-      />
-
-      {/* Radial vignette — creates "depth" illusion */}
-      <div
-        className="absolute inset-0 pointer-events-none z-10"
-        style={{
-          background: "radial-gradient(ellipse 80% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.75) 100%)",
-        }}
-      />
-
-      {/* Holographic tint overlay */}
-      <div
-        className="absolute inset-0 pointer-events-none z-[9]"
-        style={{
-          background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(237,28,36,0.04) 0%, transparent 70%)",
-        }}
-      />
-
-      {/* HUD corner brackets */}
-      {[
-        "top-0 left-0 border-t-2 border-l-2",
-        "top-0 right-0 border-t-2 border-r-2",
-        "bottom-0 left-0 border-b-2 border-l-2",
-        "bottom-0 right-0 border-b-2 border-r-2",
-      ].map((cls, i) => (
-        <div key={i} className={`absolute ${cls} w-6 h-6 border-red-600/60 z-20`} />
-      ))}
-
-      {/* Map */}
-      <div className="flex-1 relative" style={{ perspective: "900px" }}>
-        <div style={{ transform: "rotateX(8deg) scale(1.04)", transformOrigin: "50% 60%", height: "100%" }}>
-        <ComposableMap
-          projection="geoMercator"
-          projectionConfig={{ scale: 130, center: [10, 20] }}
-          style={{ width: "100%", height: "100%", background: "transparent" }}
-        >
-          <ZoomableGroup zoom={1} minZoom={0.8} maxZoom={4}>
-            <Geographies geography={GEO_URL}>
-              {({ geographies }) =>
-                geographies.map((geo) => {
-                  const numId    = String(geo.id ?? "");
-                  const isoCode  = NUM_TO_ISO[numId];
-                  const cData    = isoCode ? dataMap[isoCode] : undefined;
-                  const isHov    = isoCode === hovered;
-                  const isSel    = isoCode === selected?.country_code;
-                  const pct      = cData?.participation_pct ?? 0;
-                  const fillBase = cData ? heatScale(pct) : "#111111";
-                  const fill     = isHov || isSel
-                    ? cData ? heatScale(Math.min(pct + 10, 50)) : "#2a2a2a"
-                    : fillBase;
-
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      onMouseEnter={() => isoCode && setHovered(isoCode)}
-                      onMouseLeave={() => setHovered(null)}
-                      onClick={() => cData && setSelected(cData === selected ? null : cData)}
-                      style={{
-                        default: {
-                          fill,
-                          stroke: isSel ? "#ED1C24" : "#222",
-                          strokeWidth: isSel ? 1.5 : 0.4,
-                          outline: "none",
-                          filter: isSel
-                            ? "drop-shadow(0 0 6px #ED1C24)"
-                            : isHov && cData
-                            ? "drop-shadow(0 0 3px #ED1C2488)"
-                            : "none",
-                          transition: "fill 0.2s, filter 0.2s",
-                        },
-                        hover: {
-                          fill,
-                          stroke: cData ? "#ED1C24" : "#333",
-                          strokeWidth: 0.8,
-                          outline: "none",
-                        },
-                        pressed: {
-                          fill: "#ED1C24",
-                          outline: "none",
-                        },
-                      }}
-                    />
-                  );
-                })
-              }
-            </Geographies>
-          </ZoomableGroup>
-        </ComposableMap>
-        </div>
-
-        {/* Legend */}
-        <div className="absolute bottom-3 right-3 bg-black/80 border border-red-900/40 rounded p-3 z-20">
-          <div className="text-[8px] font-mono text-red-500/60 uppercase tracking-widest mb-2">
-            Market Share
-          </div>
-          {[
-            { label: ">20%", color: "#ED1C24" },
-            { label: "10–20%", color: "#8B0000" },
-            { label: "5–10%", color: "#4D0000" },
-            { label: "<5%",  color: "#1a0000" },
-            { label: "N/A",  color: "#111" },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center gap-2 mb-1">
-              <div className="w-3 h-2 rounded-sm border border-white/10" style={{ background: item.color }} />
-              <span className="text-[8px] font-mono text-white/40">{item.label}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Active company label */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-          <motion.div
-            key={companyName}
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center"
-          >
-            <span className="text-[9px] font-mono text-red-500/70 uppercase tracking-[0.4em]">
-              {companyName}
-            </span>
-          </motion.div>
+    <div className="w-full h-full bg-[#0a0a0a] border border-[#333] rounded-lg overflow-hidden flex flex-col min-h-[500px]">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-[#333] flex items-center justify-between bg-black/50">
+        <h2 className="text-sm font-mono font-bold text-white tracking-wider">
+          GLOBAL INTELLIGENCE // MARKET FOOTPRINT
+        </h2>
+        <div className="flex items-center gap-4 text-[10px] font-mono">
+          <span className="text-[#666]">{activeData.length} JURISDICCIONES</span>
+          <span className="text-[#ED1C24]">●</span>
+          <span className="text-[#666]">LIVE TELEMETRY</span>
         </div>
       </div>
 
-      {/* Hover tooltip */}
-      <AnimatePresence>
-        {hovered && dataMap[hovered] && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed z-50 pointer-events-none bg-black/95 border border-red-900/60 rounded p-3 text-xs shadow-xl"
-            style={{ left: tooltip.x, top: tooltip.y, minWidth: 160 }}
-          >
-            <div className="font-mono font-bold text-white mb-1">{dataMap[hovered].country_name}</div>
-            <div
-              className="text-xl font-mono font-black mb-1"
-              style={{ color: heatScale(dataMap[hovered].participation_pct) }}
-            >
-              {dataMap[hovered].participation_pct}%
-            </div>
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className="text-[9px] px-1.5 py-0.5 rounded font-mono border"
-                style={{
-                  color: STATUS_COLOR[dataMap[hovered].status],
-                  borderColor: `${STATUS_COLOR[dataMap[hovered].status]}40`,
-                  background: `${STATUS_COLOR[dataMap[hovered].status]}15`,
-                }}
+      {/* Content */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Country List */}
+        <div className="w-56 border-r border-[#333] overflow-y-auto bg-black/20">
+          <div className="p-3 space-y-2">
+            {[...activeData].sort((a, b) => b.participation_pct - a.participation_pct).map((country) => (
+              <motion.button
+                key={country.country_code}
+                onClick={() => setSelectedCountry(country)}
+                className={`w-full text-left p-2.5 rounded border transition-all ${
+                  selectedCountry?.country_code === country.country_code
+                    ? "border-[#ED1C24] bg-[#ED1C24]/10"
+                    : "border-[#333] bg-[#1a1a1a]/50 hover:border-[#555]"
+                }`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                {dataMap[hovered].status.toUpperCase()}
-              </span>
-              <span className="text-[9px] font-mono text-white/40">
-                Score {dataMap[hovered].influence_score}/10
-              </span>
-            </div>
-            <div className="text-[9px] font-mono text-white/30">
-              Audits: {dataMap[hovered].audits_completed} · Alerts: {dataMap[hovered].alerts_forenses}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-mono text-white font-bold">
+                    {country.country_code} {country.country_name}
+                  </span>
+                  <span
+                    className="text-[11px] font-mono font-black"
+                    style={{ color: colorScale(country.participation_pct) }}
+                  >
+                    {country.participation_pct}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold"
+                    style={{
+                      backgroundColor: `${STATUS_COLORS[country.status]}20`,
+                      color: STATUS_COLORS[country.status],
+                      border: `1px solid ${STATUS_COLORS[country.status]}40`,
+                    }}
+                  >
+                    {country.status.toUpperCase()}
+                  </span>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        </div>
 
-      {/* Country detail panel */}
-      <AnimatePresence>
-        {selected && (
-          <motion.div
-            initial={{ x: 280, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 280, opacity: 0 }}
-            transition={{ type: "spring", damping: 28, stiffness: 220 }}
-            className="absolute top-8 right-8 w-56 bg-black/95 border border-red-900/50 rounded-lg p-4 z-30"
+        {/* Map Container */}
+        <div className="flex-1 relative overflow-hidden" onMouseMove={handleMouseMove}>
+          <ComposableMap
+            projection="geoMercator"
+            projectionConfig={{ scale: 140, center: [0, 20] }}
+            style={{ width: "100%", height: "100%" }}
           >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-mono font-black text-white">{selected.country_name}</span>
-              <button
-                onClick={() => setSelected(null)}
-                className="text-white/30 hover:text-white/70 text-xs"
-              >
-                ✕
-              </button>
-            </div>
+            <ZoomableGroup>
+              <Geographies geography={GEO_URL}>
+                {({ geographies }) =>
+                  geographies.map((geo) => {
+                    const iso = NUM_TO_ISO[String(geo.id)] ?? null;
+                    const countryData = iso ? dataMap[iso] : undefined;
 
-            <div className="text-3xl font-mono font-black mb-3" style={{ color: heatScale(selected.participation_pct) }}>
-              {selected.participation_pct}%
-            </div>
+                    return (
+                      <Geography
+                        key={geo.rsmKey}
+                        geography={geo}
+                        onMouseEnter={() => iso && setHoveredCountry(iso)}
+                        onMouseLeave={() => setHoveredCountry(null)}
+                        onClick={() => countryData && setSelectedCountry(countryData)}
+                        style={{
+                          default: {
+                            fill: countryData
+                              ? colorScale(countryData.participation_pct)
+                              : "#1a1a1a",
+                            stroke: "#333",
+                            strokeWidth: 0.5,
+                            outline: "none",
+                          },
+                          hover: {
+                            fill: countryData
+                              ? colorScale(countryData.participation_pct)
+                              : "#333",
+                            stroke: "#ED1C24",
+                            strokeWidth: 1,
+                            outline: "none",
+                            filter: "brightness(1.3)",
+                          },
+                          pressed: {
+                            fill: "#ED1C24",
+                            outline: "none",
+                          },
+                        }}
+                      />
+                    );
+                  })
+                }
+              </Geographies>
+            </ZoomableGroup>
+          </ComposableMap>
 
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              {[
-                { label: "STATUS",     value: selected.status,           color: STATUS_COLOR[selected.status] },
-                { label: "INFLUENCIA", value: `${selected.influence_score}/10`, color: "#fff" },
-                { label: "AUDITORÍAS", value: selected.audits_completed.toString(), color: "#fff" },
-                { label: "ALERTAS",    value: selected.alerts_forenses.toString(),  color: RISK_COLOR[selected.risk_level] },
-              ].map((item) => (
-                <div key={item.label} className="bg-black/40 border border-white/5 rounded p-1.5">
-                  <div className="text-[8px] font-mono text-white/30 uppercase">{item.label}</div>
-                  <div className="text-[10px] font-mono font-bold mt-0.5" style={{ color: item.color }}>
-                    {item.value}
-                  </div>
+          {/* Legend */}
+          <div className="absolute bottom-4 left-4 bg-[#1a1a1a]/90 border border-[#333] rounded p-3 backdrop-blur-sm">
+            <div className="text-[9px] font-mono text-[#666] mb-2 font-bold tracking-widest uppercase">Participation Scale</div>
+            <div className="flex items-center gap-1">
+              {[0, 10, 20, 30, 40].map((val) => (
+                <div key={val} className="flex flex-col items-center">
+                  <div className="w-6 h-2" style={{ backgroundColor: colorScale(val) }} />
+                  <span className="text-[8px] font-mono text-[#666] mt-1">{val}%</span>
                 </div>
               ))}
             </div>
+          </div>
 
-            <div className="border border-white/5 rounded p-2">
-              <div className="text-[8px] font-mono text-white/30 mb-1.5 uppercase">Risk Level</div>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.min((selected.alerts_forenses / 50) * 100, 100)}%`,
-                      background: RISK_COLOR[selected.risk_level],
-                    }}
-                  />
+          {/* Tooltip */}
+          <AnimatePresence>
+            {hoveredCountry && dataMap[hoveredCountry] && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="fixed pointer-events-none z-50 bg-[#0a0a0a] border border-[#ED1C24]/30 rounded p-3 shadow-2xl backdrop-blur-md"
+                style={{ left: tooltipPos.x, top: tooltipPos.y }}
+              >
+                <div className="text-xs font-mono font-black text-white mb-1 uppercase tracking-tighter">
+                  {dataMap[hoveredCountry].country_name}
                 </div>
-                <span
-                  className="text-[9px] font-mono uppercase font-bold"
-                  style={{ color: RISK_COLOR[selected.risk_level] }}
-                >
-                  {selected.risk_level}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                <div className="text-xl font-mono font-black leading-none mb-2" style={{ color: colorScale(dataMap[hoveredCountry].participation_pct) }}>
+                  {dataMap[hoveredCountry].participation_pct}%
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <span className="text-[9px] text-[#666] font-mono uppercase">Audits:</span>
+                  <span className="text-[9px] text-white font-mono font-bold text-right">{dataMap[hoveredCountry].audits_completed}</span>
+                  <span className="text-[9px] text-[#666] font-mono uppercase">Risk:</span>
+                  <span className="text-[9px] font-mono font-bold text-right uppercase" style={{ color: RISK_COLORS[dataMap[hoveredCountry].risk_level] }}>
+                    {dataMap[hoveredCountry].risk_level}
+                  </span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Detail Panel */}
+          <AnimatePresence>
+            {selectedCountry && (
+              <motion.div
+                initial={{ x: 300, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 300, opacity: 0 }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="absolute top-4 right-4 w-64 bg-[#0a0a0a]/95 border border-[#ED1C24]/50 rounded p-4 shadow-2xl backdrop-blur-xl z-40"
+              >
+                <div className="flex items-center justify-between mb-4 border-b border-[#333] pb-2">
+                  <h3 className="text-xs font-mono font-black text-white uppercase tracking-widest">
+                    {selectedCountry.country_name}
+                  </h3>
+                  <button
+                    onClick={() => setSelectedCountry(null)}
+                    className="text-[#666] hover:text-white transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <div className="text-[9px] text-[#666] font-mono mb-1 tracking-widest uppercase font-bold">Market Share</div>
+                      <div className="text-3xl font-mono font-black leading-none" style={{ color: colorScale(selectedCountry.participation_pct) }}>
+                        {selectedCountry.participation_pct}%
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[9px] text-[#666] font-mono mb-1 tracking-widest uppercase font-bold">Influence</div>
+                      <div className="text-xl font-mono font-black text-white">{selectedCountry.influence_score}<span className="text-[10px] text-[#666]">/10</span></div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-black/40 rounded p-2 border border-[#333]">
+                      <div className="text-[9px] text-[#666] font-mono mb-1 font-bold">STATUS</div>
+                      <div className="text-[10px] font-mono font-bold uppercase" style={{ color: STATUS_COLORS[selectedCountry.status] }}>
+                        {selectedCountry.status}
+                      </div>
+                    </div>
+                    <div className="bg-black/40 rounded p-2 border border-[#333]">
+                      <div className="text-[9px] text-[#666] font-mono mb-1 font-bold">AUDITS</div>
+                      <div className="text-[10px] font-mono font-black text-white">{selectedCountry.audits_completed}</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-black/40 rounded p-3 border border-[#333]">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="text-[9px] text-[#666] font-mono font-bold tracking-widest">RISK PROFILE</div>
+                      <span className="text-[10px] font-mono font-black uppercase" style={{ color: RISK_COLORS[selectedCountry.risk_level] }}>
+                        {selectedCountry.risk_level}
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(selectedCountry.alerts_forenses / 50) * 100}%` }}
+                        className="h-full"
+                        style={{ backgroundColor: RISK_COLORS[selectedCountry.risk_level] }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-2">
+                      <span className="text-[9px] text-[#666] font-mono">Alertas detectadas:</span>
+                      <span className="text-[9px] font-mono font-black text-white">{selectedCountry.alerts_forenses}</span>
+                    </div>
+                  </div>
+
+                  <button className="w-full py-2 bg-[#ED1C24] text-white font-mono font-black text-[10px] uppercase tracking-widest hover:bg-[#ff1f29] transition-colors rounded">
+                    View Forensic Details
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 }

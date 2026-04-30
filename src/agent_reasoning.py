@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import List
 
 from src.vllm_client import call_llm
-from src.schemas import ReasoningOutput, ReasoningStep, VisionOutput
+from src.schemas import ReasoningOutput, ReasoningStep, VisionOutput, ComplianceResult
 from src.supabase_persistence import log_agent_action
 
 logger = logging.getLogger(__name__)
@@ -20,9 +20,10 @@ class ReasoningAgent:
     def __init__(self):
         self.model_name = os.getenv("VLLM_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B")
 
-    async def reason_about_document(self, vision_output: VisionOutput) -> ReasoningOutput:
+    async def reason_about_document(self, vision_output: VisionOutput, compliance_result: ComplianceResult = None) -> ReasoningOutput:
         """
-        Analiza los campos extraídos por el Agente 1 para detectar inconsistencias lógicas o fraude.
+        Analiza los campos extraídos por el Agente 1 y los hallazgos de compliance 
+        para detectar inconsistencias lógicas o fraude.
         """
         start_time = time.time()
         logger.info(f"Iniciando razonamiento forense para: {vision_output.document_id}")
@@ -33,17 +34,30 @@ class ReasoningAgent:
             indent=2
         )
         
+        compliance_json = "{}"
+        if compliance_result:
+            compliance_json = compliance_result.model_dump_json(indent=2)
+        
         prompt = f"""AUDITORÍA FORENSE REQUERIDA.
 DOCUMENTO: {vision_output.document_type}
-CAMPOS EXTRAÍDOS:
+
+--- CAMPOS EXTRAÍDOS ---
 {fields_json}
 
+--- HALLAZGOS DE COMPLIANCE (11 PAÍSES) ---
+{compliance_json}
+
 INSTRUCCIÓN:
-Como auditor forense, analiza estos datos buscando "trampas" o fraudes comunes:
+Como auditor forense senior, analiza estos datos buscando "trampas" o fraudes comunes:
 1. Errores matemáticos (Subtotal + IVA != Total).
-2. RFCs inválidos o sospechosos.
+2. RFCs/IDs Fiscales inválidos (revisa los hallazgos de compliance).
 3. Fechas inconsistentes o términos de pago inusuales.
 4. Montos inflados o conceptos vagos.
+
+REGLAS DE SEVERIDAD:
+- CRITICAL: Si falta la fecha de expiración en un contrato, si el total no coincide por mucho (error matemático), o si el proveedor está en blacklist.
+- HIGH: Discrepancias menores o campos no obligatorios faltantes.
+- NONE: Si el documento es correcto y no presenta ninguna de las anomalías anteriores, marca trap_detected como "No Trap" y severity como "NONE".
 
 DEBES RESPONDER EN FORMATO JSON SIGUIENDO ESTA ESTRUCTURA:
 {{
@@ -64,7 +78,7 @@ DEBES RESPONDER EN FORMATO JSON SIGUIENDO ESTA ESTRUCTURA:
   "assumptions": ["lista de asunciones hechas"]
 }}
 
-IMPORTANTE: Si detectas un error matemático, detállalo paso a paso. Responde SOLO el JSON."""
+IMPORTANTE: Cruza los datos de Visión con los de Compliance. Si compliance detectó 'RFC_MISSING', resáltalo en tu razonamiento. Responde SOLO el JSON."""
 
         try:
             response = call_llm(prompt, system_prompt="Eres un Auditor Forense Senior de ATLAS. Tu especialidad es detectar anomalías en documentos financieros usando razonamiento deductivo profundo.")

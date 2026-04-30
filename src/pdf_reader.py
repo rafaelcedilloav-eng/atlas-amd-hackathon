@@ -152,18 +152,17 @@ def parse_invoice(text: str) -> tuple[dict, list[str]]:
 
 def _find_end_date(text: str) -> Optional[str]:
     patterns = [
-        r'until ([A-Z][a-z]+ \d+, \d{4})',
-        r'through ([A-Z][a-z]+ \d+, \d{4})',
-        r'[Ee]nd[:\s]+([A-Z][a-z]+ \d+, \d{4})',
-        r'[Ee]xpires?[:\s]+([A-Z][a-z]+ \d+, \d{4})',
-        r'[Ii]nitial [Tt]erm.*?until ([A-Z][a-z]+ \d+, \d{4})',
-        r'April 30, 2028',
-        r'ending ([A-Z][a-z]+ \d+, \d{4})',
+        r'until\s+([A-Z][a-z]+\s+\d+,\s*\d{4})',
+        r'through\s+([A-Z][a-z]+\s+\d+,\s*\d{4})',
+        r'[Ee]nd[:\s]+([A-Z][a-z]+\s+\d+,\s*\d{4})',
+        r'[Ee]xpires?[:\s]+([A-Z][a-z]+\s+\d+,\s*\d{4})',
+        r'[Ii]nitial [Tt]erm.*?until\s+([A-Z][a-z]+\s+\d+,\s*\d{4})',
+        r'ending\s+([A-Z][a-z]+\s+\d+,\s*\d{4})',
     ]
     for p in patterns:
         m = re.search(p, text)
         if m:
-            return m.group(0) if '(' not in p else m.group(1)
+            return m.group(1).strip()
     return None
 
 

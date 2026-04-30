@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { atlasApi } from "@/services/api";
 import { UploadModal } from "@/components/features/upload-modal";
-import { XRayPanel } from "@/components/features/xray-panel";
+import XRayPanel from "@/components/features/xray-panel";
 import { useAuditStore } from "@/store/audit-store";
 
 const NAV_LINKS = [
@@ -195,9 +195,7 @@ export default function DashboardPage() {
           transition={{ duration: 0.5, ease: "easeOut", delay: 0.14 }}
         >
           <XRayPanel
-            auditId={activeAuditId}
-            phase={phase}
-            onReset={resetAudit}
+            auditId={activeAuditId || ""}
           />
         </motion.main>
 
