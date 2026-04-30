@@ -10,9 +10,10 @@ import logging
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://165.245.138.52:8000/v1")
-VLLM_MODEL    = os.getenv("VLLM_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B")
-VLLM_TIMEOUT  = int(os.getenv("VLLM_TIMEOUT", "30"))
+VLLM_BASE_URL  = os.getenv("VLLM_BASE_URL",  "http://165.245.138.52:8000/v1")
+VLLM_MODEL     = os.getenv("VLLM_MODEL",     "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B")
+VLLM_TIMEOUT   = int(os.getenv("VLLM_TIMEOUT",    "30"))
+VLLM_MAX_TOKENS = int(os.getenv("VLLM_MAX_TOKENS", "3072"))
 
 # vLLM no requiere API key real si es una instancia privada
 client = OpenAI(
@@ -24,7 +25,7 @@ client = OpenAI(
 def call_llm(
     prompt: str,
     system_prompt: str = "Eres un auditor forense experto en detección de fraude y errores contables.",
-    max_tokens: int = 2048,
+    max_tokens: int = VLLM_MAX_TOKENS,
     temperature: float = 0.1
 ) -> str:
     """
