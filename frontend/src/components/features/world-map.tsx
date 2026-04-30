@@ -82,12 +82,43 @@ export function WorldMap({ countries, companyName }: WorldMapProps) {
 
   return (
     <div className="relative w-full h-full flex flex-col" onMouseMove={onMove}>
+      <style>{`
+        @keyframes scanSweep {
+          0%   { top: -2px; }
+          100% { top: 100%; }
+        }
+      `}</style>
 
-      {/* Scanline overlay */}
+      {/* Static scanlines */}
       <div
         className="absolute inset-0 pointer-events-none z-10"
         style={{
-          background: "repeating-linear-gradient(transparent 0px, transparent 3px, rgba(237,28,36,0.025) 3px, rgba(237,28,36,0.025) 4px)",
+          background: "repeating-linear-gradient(transparent 0px, transparent 3px, rgba(237,28,36,0.03) 3px, rgba(237,28,36,0.03) 4px)",
+        }}
+      />
+
+      {/* Animated horizontal sweep line */}
+      <div
+        className="absolute left-0 right-0 h-px pointer-events-none z-10 opacity-60"
+        style={{
+          background: "linear-gradient(to right, transparent, #ED1C24, transparent)",
+          animation: "scanSweep 4s linear infinite",
+        }}
+      />
+
+      {/* Radial vignette — creates "depth" illusion */}
+      <div
+        className="absolute inset-0 pointer-events-none z-10"
+        style={{
+          background: "radial-gradient(ellipse 80% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.75) 100%)",
+        }}
+      />
+
+      {/* Holographic tint overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none z-[9]"
+        style={{
+          background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(237,28,36,0.04) 0%, transparent 70%)",
         }}
       />
 
@@ -102,7 +133,8 @@ export function WorldMap({ countries, companyName }: WorldMapProps) {
       ))}
 
       {/* Map */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative" style={{ perspective: "900px" }}>
+        <div style={{ transform: "rotateX(8deg) scale(1.04)", transformOrigin: "50% 60%", height: "100%" }}>
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{ scale: 130, center: [10, 20] }}
@@ -161,6 +193,7 @@ export function WorldMap({ countries, companyName }: WorldMapProps) {
             </Geographies>
           </ZoomableGroup>
         </ComposableMap>
+        </div>
 
         {/* Legend */}
         <div className="absolute bottom-3 right-3 bg-black/80 border border-red-900/40 rounded p-3 z-20">

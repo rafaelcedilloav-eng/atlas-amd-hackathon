@@ -5,7 +5,7 @@ import { Sidebar } from "./sidebar";
 
 // These routes render full-screen (no sidebar).
 // All 3D immersive pages live here.
-const FULL_SCREEN: string[] = ["/", "/dashboard", "/analytics", "/hardware"];
+const FULL_SCREEN: string[] = ["/", "/dashboard", "/analytics", "/hardware", "/intelligence"];
 
 function needsSidebar(pathname: string): boolean {
   if (FULL_SCREEN.includes(pathname)) return false;
