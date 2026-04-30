@@ -1,62 +1,98 @@
 """
 Cliente vLLM unificado para ATLAS.
 Compatible con OpenAI API — apunta al servidor AMD MI300X.
+Usa peticiones HTTP puras sin depender de la librería openai.
 """
-import os
-from openai import OpenAI
-from dotenv import load_dotenv
+import requests
 import logging
+import time
+from typing import List, Dict, Optional
+from src.config import settings
+from src.error_handling import handle_errors
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
-VLLM_BASE_URL  = os.getenv("VLLM_BASE_URL",  "http://165.245.138.52:8000/v1")
-VLLM_MODEL     = os.getenv("VLLM_MODEL",     "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B")
-VLLM_TIMEOUT   = int(os.getenv("VLLM_TIMEOUT",    "30"))
-VLLM_MAX_TOKENS = int(os.getenv("VLLM_MAX_TOKENS", "3072"))
+class CircuitBreaker:
+    def __init__(self, failure_threshold=3, recovery_timeout=30):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.failures = 0
+        self.last_failure_time = 0
+        self.state = "CLOSED"
 
-# vLLM no requiere API key real si es una instancia privada
-client = OpenAI(
-    base_url=VLLM_BASE_URL,
-    api_key=os.getenv("VLLM_API_KEY", "not-needed"),
-    timeout=VLLM_TIMEOUT
-)
+    def record_failure(self):
+        self.failures += 1
+        self.last_failure_time = time.time()
+        if self.failures >= self.failure_threshold:
+            self.state = "OPEN"
 
-def call_llm(
-    prompt: str,
-    system_prompt: str = "Eres un auditor forense experto en detección de fraude y errores contables.",
-    max_tokens: int = VLLM_MAX_TOKENS,
-    temperature: float = 0.1
-) -> str:
-    """
-    Llamada unificada al LLM en AMD.
-    Todos los agentes usan esta función — nunca llaman a OpenAI directamente.
-    """
-    try:
-        response = client.chat.completions.create(
-            model=VLLM_MODEL,
-            messages=[
+    def can_proceed(self):
+        if self.state == "OPEN":
+            if time.time() - self.last_failure_time > self.recovery_timeout:
+                self.state = "HALF_OPEN"
+                return True
+            return False
+        return True
+
+    def record_success(self):
+        self.failures = 0
+        self.state = "CLOSED"
+
+class VLLMClient:
+    def __init__(self):
+        self.base_url = settings.vllm_base_url
+        self.model = settings.model_name
+        self.timeout = settings.timeout_api
+        self.breaker = CircuitBreaker()
+
+    @handle_errors
+    async def call_llm(
+        self,
+        prompt: str,
+        system_prompt: str = "Eres un auditor forense experto en detección de fraude y errores contables.",
+        max_tokens: int = 3072,
+        temperature: float = 0.1,
+        timeout: Optional[int] = None
+    ) -> str:
+        if not self.breaker.can_proceed():
+            raise Exception("Circuit breaker is OPEN. Service unavailable.")
+        
+        url = f"{self.base_url}/chat/completions"
+        headers = {"Content-Type": "application/json"}
+        payload = {
+            "model": self.model,
+            "messages": [
                 {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": prompt}
+                {"role": "user", "content": prompt}
             ],
-            max_tokens=max_tokens,
-            temperature=temperature
-        )
-        result = response.choices[0].message.content
-        logger.debug(f"LLM response received: {len(result)} chars")
-        return result
-    except Exception as e:
-        logger.error(f"Error en llamada LLM (vLLM): {e}")
-        raise
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+        
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=timeout or self.timeout)
+            response.raise_for_status()
+            data = response.json()
+            self.breaker.record_success()
+            return data["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            self.breaker.record_failure()
+            logger.error(f"Error en llamada LLM (vLLM): {type(e).__name__}")
+            raise
 
+    def verify_connection(self) -> bool:
+        """Verifica que el servidor vLLM está disponible."""
+        url = f"{self.base_url}/models"
+        try:
+            response = requests.get(url, timeout=self.timeout)
+            return response.status_code == 200
+        except Exception as e:
+            logger.error(f"No se puede conectar al servidor vLLM: {type(e).__name__}")
+            return False
 
-def verify_connection() -> bool:
-    """Verifica que el servidor vLLM está disponible y tiene el modelo cargado."""
-    try:
-        models = client.models.list()
-        available = [m.id for m in models.data]
-        logger.info(f"vLLM conectado. Modelos disponibles: {available}")
-        return VLLM_MODEL in available
-    except Exception as e:
-        logger.error(f"No se puede conectar a vLLM en {VLLM_BASE_URL}: {e}")
-        return False
+# Instancia global del cliente
+vllm_client = VLLMClient()
+
+# Alias para mantener compatibilidad con agentes existentes
+call_llm = vllm_client.call_llm
+verify_connection = vllm_client.verify_connection

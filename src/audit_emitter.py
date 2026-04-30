@@ -12,6 +12,12 @@ from dataclasses import dataclass, asdict
 
 logger = logging.getLogger(__name__)
 
+def mask_audit_id(audit_id: str) -> str:
+    """Máscara el audit_id para logs seguros."""
+    if not audit_id or len(audit_id) < 12:
+        return "****"
+    return f"{audit_id[:6]}****{audit_id[-6:]}"
+
 @dataclass
 class AuditEvent:
     event_id: str
@@ -23,6 +29,9 @@ class AuditEvent:
     detail: Optional[Dict] = None
     progress_pct: int = 0
     severity: str = "info"  # info, warning, error, success
+
+    def model_dump(self):
+        return asdict(self)
 
 
 class AuditEventBus:
@@ -45,7 +54,7 @@ class AuditEventBus:
     
     async def emit(self, event: AuditEvent):
         """Emite un evento a todos los suscriptores y guarda en historia."""
-        event_dict = asdict(event)
+        event_dict = event.model_dump()
         
         # Guardar en historia
         if event.audit_id not in self._history:
@@ -68,7 +77,7 @@ class AuditEventBus:
         queue = self.get_or_create_stream(audit_id)
 
         # Replay history so late-connecting clients see all prior events
-        for event in list(self._history.get(audit_id, [])):
+        for event in list(self._history.get(audit_id, [])):\
             yield json.dumps(event)
             if event.get("agent") == "orchestrator" and event.get("stage") == "complete":
                 return
@@ -91,6 +100,18 @@ class AuditEventBus:
     def get_history(self, audit_id: str) -> List[Dict]:
         """Retorna el historial de eventos de una auditoría."""
         return self._history.get(audit_id, [])
+
+    def emit_events_paginated(self, audit_id: str, page: int = 1, page_size: int = 10) -> Dict[str, Any]:
+        """Retorna eventos de una auditoría con paginación básica."""
+        history = self.get_history(audit_id)
+        start = (page - 1) * page_size
+        end = start + page_size
+        return {
+            "events": history[start:end],
+            "total": len(history),
+            "page": page,
+            "page_size": page_size
+        }
     
     def cleanup(self, audit_id: str):
         """Limpia recursos de una auditoría completada."""
@@ -102,7 +123,7 @@ class AuditEventBus:
         """Elimina el historial después de un retraso para evitar fugas de memoria."""
         await asyncio.sleep(delay)
         self._history.pop(audit_id, None)
-        logger.debug(f"Historial de SSE purgado para {audit_id}")
+        logger.debug(f"Historial de SSE purgado para {mask_audit_id(audit_id)}")
 
 
 # Singleton global
@@ -112,6 +133,8 @@ event_bus = AuditEventBus()
 # ── Helper functions para el orchestrator ────────────────────────────────────
 
 async def emit_vision_start(audit_id: str):
+    masked_id = mask_audit_id(audit_id)
+    logger.info(f"[{masked_id}] Iniciando extracción de texto y campos del documento...")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-v-start",
         audit_id=audit_id,
@@ -124,6 +147,8 @@ async def emit_vision_start(audit_id: str):
     ))
 
 async def emit_vision_complete(audit_id: str, confidence: float, fields_count: int):
+    masked_id = mask_audit_id(audit_id)
+    logger.info(f"[{masked_id}] Extracción completada. {fields_count} campos detectados (confianza: {confidence:.0%}).")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-v-done",
         audit_id=audit_id,
@@ -137,6 +162,8 @@ async def emit_vision_complete(audit_id: str, confidence: float, fields_count: i
     ))
 
 async def emit_compliance_start(audit_id: str, message: str = "detectando..."):
+    masked_id = mask_audit_id(audit_id)
+    logger.info(f"[{masked_id}] Compliance check: {message}")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-c-start",
         audit_id=audit_id,
@@ -149,7 +176,9 @@ async def emit_compliance_start(audit_id: str, message: str = "detectando..."):
     ))
 
 async def emit_compliance_findings(audit_id: str, findings_count: int, score: float, country: str):
+    masked_id = mask_audit_id(audit_id)
     severity = "success" if score > 0.8 else "warning" if score > 0.5 else "error"
+    logger.info(f"[{masked_id}] Jurisdicción detectada: {country}. {findings_count} hallazgos (Score: {score:.0%})")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-c-done",
         audit_id=audit_id,
@@ -163,6 +192,8 @@ async def emit_compliance_findings(audit_id: str, findings_count: int, score: fl
     ))
 
 async def emit_reasoning_start(audit_id: str):
+    masked_id = mask_audit_id(audit_id)
+    logger.info(f"[{masked_id}] DeepSeek-R1 analizando patrones de fraude e inconsistencias lógicas...")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-r-start",
         audit_id=audit_id,
@@ -175,6 +206,8 @@ async def emit_reasoning_start(audit_id: str):
     ))
 
 async def emit_reasoning_step(audit_id: str, step_num: int, conclusion: str):
+    masked_id = mask_audit_id(audit_id)
+    logger.info(f"[{masked_id}] Paso {step_num}: {conclusion}")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-r-step{step_num}",
         audit_id=audit_id,
@@ -188,7 +221,9 @@ async def emit_reasoning_step(audit_id: str, step_num: int, conclusion: str):
     ))
 
 async def emit_reasoning_complete(audit_id: str, trap_detected: str, severity: str):
+    masked_id = mask_audit_id(audit_id)
     sev = "error" if severity in ["CRITICAL", "HIGH"] else "warning" if severity == "MEDIUM" else "info"
+    logger.info(f"[{masked_id}] Análisis forense completo. Trampa detectada: {trap_detected} ({severity})")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-r-done",
         audit_id=audit_id,
@@ -202,6 +237,8 @@ async def emit_reasoning_complete(audit_id: str, trap_detected: str, severity: s
     ))
 
 async def emit_validator_start(audit_id: str):
+    masked_id = mask_audit_id(audit_id)
+    logger.info(f"[{masked_id}] Validando integridad: matemáticas, duplicados, blacklist...")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-val-start",
         audit_id=audit_id,
@@ -214,7 +251,9 @@ async def emit_validator_start(audit_id: str):
     ))
 
 async def emit_validator_gate(audit_id: str, gate_name: str, passed: bool, detail: str):
+    masked_id = mask_audit_id(audit_id)
     sev = "success" if passed else "error"
+    logger.info(f"[{masked_id}] Gate {gate_name}: {'PASS' if passed else 'FAIL'} — {detail}")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-val-{gate_name}",
         audit_id=audit_id,
@@ -228,7 +267,9 @@ async def emit_validator_gate(audit_id: str, gate_name: str, passed: bool, detai
     ))
 
 async def emit_validator_complete(audit_id: str, recommendation: str):
+    masked_id = mask_audit_id(audit_id)
     sev = "success" if recommendation == "APPROVE" else "error" if recommendation == "FLAG" else "warning"
+    logger.info(f"[{masked_id}] Validación completa. Recomendación: {recommendation}")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-val-done",
         audit_id=audit_id,
@@ -242,6 +283,8 @@ async def emit_validator_complete(audit_id: str, recommendation: str):
     ))
 
 async def emit_explainer_start(audit_id: str):
+    masked_id = mask_audit_id(audit_id)
+    logger.info(f"[{masked_id}] Generando reporte ejecutivo en español (es-MX)...")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-e-start",
         audit_id=audit_id,
@@ -254,6 +297,8 @@ async def emit_explainer_start(audit_id: str):
     ))
 
 async def emit_explainer_complete(audit_id: str, next_action: str):
+    masked_id = mask_audit_id(audit_id)
+    logger.info(f"[{masked_id}] Reporte generado. Acción recomendada: {next_action}")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-e-done",
         audit_id=audit_id,
@@ -267,6 +312,8 @@ async def emit_explainer_complete(audit_id: str, next_action: str):
     ))
 
 async def emit_pipeline_complete(audit_id: str, status: str, processing_time_ms: int):
+    masked_id = mask_audit_id(audit_id)
+    logger.info(f"[{masked_id}] Pipeline ATLAS completado en {processing_time_ms}ms. Estado: {status}")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-done",
         audit_id=audit_id,
@@ -280,6 +327,8 @@ async def emit_pipeline_complete(audit_id: str, status: str, processing_time_ms:
     ))
 
 async def emit_error(audit_id: str, agent: str, error_msg: str):
+    masked_id = mask_audit_id(audit_id)
+    logger.error(f"[{masked_id}] ERROR en {agent}: {error_msg[:150]}")
     await event_bus.emit(AuditEvent(
         event_id=f"{audit_id}-err",
         audit_id=audit_id,

@@ -1,10 +1,11 @@
 """
 ATLAS Orchestrator v2.0
-Gestiona el flujo secuencial entre agentes con Compliance Router y Audit Events.
+Gestiona el flujo ssecuencial entre agentes con Compliance Router y Audit Events.
 Vision -> Compliance -> Reasoning -> Validator -> Explainer -> Supabase
 """
 import time
 import logging
+import hashlib
 from datetime import datetime
 from typing import Optional, List
 
@@ -12,7 +13,7 @@ from src.agent_vision import VisionAnalyzerAgent
 from src.agent_reasoning import ReasoningAgent
 from src.agent_validator import ValidatorAgent
 from src.agent_explainer import ExplainerAgent
-from src.schemas import PipelineResult, MarketData
+from src.schemas import PipelineResult, MarketData, AuditEvent
 from src.supabase_persistence import save_audit_result
 from src.compliance_router import run_compliance_check
 from src.pipeline_gates import gate_1_2, gate_2_3, gate_3_4, GateDecision
@@ -29,17 +30,26 @@ from src.audit_emitter import (
 
 logger = logging.getLogger(__name__)
 
+# ── Helper: Generar audit_id de forma segura ──────────────────────────────────
+
+def compute_audit_id(pdf_path: str) -> str:
+    """Genera un audit_id seguro basado en el contenido del PDF."""
+    with open(pdf_path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+# ── Helper: Calcular progreso por etapa ───────────────────────────────────────
+
+def calculate_progress(stage_index: int, total_stages: int = 6) -> int:
+    return int((stage_index / total_stages) * 100)
+
+# ── Pipeline principal ────────────────────────────────────────────────────────
+
 async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> PipelineResult:
     """
     Ejecuta el pipeline completo de ATLAS v2.0 con Compliance y X-Ray.
     """
     start_time = time.time()
-
-    # Pre-compute doc_id so the SSE stream is registered before the first event.
-    # The frontend computes the same SHA256 client-side to connect immediately.
-    import hashlib
-    with open(pdf_path, "rb") as _fh:
-        audit_id = audit_id or hashlib.sha256(_fh.read()).hexdigest()
+    audit_id = audit_id or compute_audit_id(pdf_path)
     event_bus.get_or_create_stream(audit_id)
 
     # Instanciar agentes
@@ -50,6 +60,16 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
 
     # ── 1. VISION (Extracción) ──────────────────────────────────────────────
     await emit_vision_start(audit_id)
+    progress = 10
+    await event_bus.emit(AuditEvent(
+        event_id=f"{audit_id}-vision-start",
+        audit_id=audit_id,
+        timestamp=datetime.now().isoformat(),
+        agent="vision",
+        stage="start",
+        message="Iniciando análisis visual del documento.",
+        progress_pct=progress
+    ))
 
     vision_out = await vision_agent.analyze_document(pdf_path)
     
@@ -60,6 +80,16 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
         return await _handle_critical_failure(audit_id, pdf_path, vision_out, f"Gate 1→2 ESCALATE: {g12.anomalies}", start_time)
 
     await emit_vision_complete(audit_id, vision_out.confidence, len(vision_out.extracted_fields))
+    progress = calculate_progress(1.5)
+    await event_bus.emit(AuditEvent(
+        event_id=f"{audit_id}-vision-complete",
+        audit_id=audit_id,
+        timestamp=datetime.now().isoformat(),
+        agent="vision",
+        stage="complete",
+        message="Análisis visual completado.",
+        progress_pct=progress
+    ))
     
     # Short-Circuit
     if not vision_out.extracted_fields and vision_out.confidence < 0.1:
@@ -67,6 +97,16 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
 
     # ── 2. COMPLIANCE (Nuevo: Router de 11 países) ──────────────────────────
     await emit_compliance_start(audit_id, "detectando país...")
+    progress = calculate_progress(2)
+    await event_bus.emit(AuditEvent(
+        event_id=f"{audit_id}-compliance-start",
+        audit_id=audit_id,
+        timestamp=datetime.now().isoformat(),
+        agent="compliance",
+        stage="start",
+        message="Iniciando verificación de cumplimiento legal.",
+        progress_pct=progress
+    ))
     
     compliance_result = run_compliance_check(
         raw_text=vision_out.raw_text or "",
@@ -81,12 +121,31 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
         compliance_result.compliance_score,
         compliance_result.country_detected
     )
+    progress = calculate_progress(2.5)
+    await event_bus.emit(AuditEvent(
+        event_id=f"{audit_id}-compliance-complete",
+        audit_id=audit_id,
+        timestamp=datetime.now().isoformat(),
+        agent="compliance",
+        stage="complete",
+        message=f"Verificación de cumplimiento completada. País detectado: {compliance_result.country_detected}",
+        progress_pct=progress
+    ))
 
     # ── 3. REASONING (Análisis Forense) ─────────────────────────────────────
     await emit_reasoning_start(audit_id)
+    progress = calculate_progress(3)
+    await event_bus.emit(AuditEvent(
+        event_id=f"{audit_id}-reasoning-start",
+        audit_id=audit_id,
+        timestamp=datetime.now().isoformat(),
+        agent="reasoning",
+        stage="start",
+        message="Iniciando análisis forense del documento.",
+        progress_pct=progress
+    ))
     
     try:
-        # El razonador ahora recibe los hallazgos de compliance para cruzar datos
         reasoning_out = await reasoning_agent.reason_about_document(vision_out, compliance_result)
         
         # Quality Gate 2→3
@@ -96,6 +155,16 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
         for i, step in enumerate(reasoning_out.reasoning_chain[:3]):
             await emit_reasoning_step(audit_id, step.step, step.conclusion)
         await emit_reasoning_complete(audit_id, reasoning_out.trap_detected, reasoning_out.trap_severity)
+        progress = calculate_progress(3.5)
+        await event_bus.emit(AuditEvent(
+            event_id=f"{audit_id}-reasoning-complete",
+            audit_id=audit_id,
+            timestamp=datetime.now().isoformat(),
+            agent="reasoning",
+            stage="complete",
+            message=f"Análisis forense completado. Trampa detectada: {reasoning_out.trap_detected}",
+            progress_pct=progress
+        ))
     except Exception as e:
         logger.error(f"Agent 2 falló: {e}")
         await emit_error(audit_id, "reasoning", str(e))
@@ -109,6 +178,16 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
 
     # ── 4. VALIDATOR (Gate de Integridad) ───────────────────────────────────
     await emit_validator_start(audit_id)
+    progress = calculate_progress(4)
+    await event_bus.emit(AuditEvent(
+        event_id=f"{audit_id}-validator-start",
+        audit_id=audit_id,
+        timestamp=datetime.now().isoformat(),
+        agent="validator",
+        stage="start",
+        message="Iniciando validación de integridad.",
+        progress_pct=progress
+    ))
     
     try:
         validator_out = await validator_agent.validate_integrity(vision_out, reasoning_out)
@@ -128,6 +207,16 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
         await emit_validator_gate(audit_id, "blacklist", not is_bl, "Proveedor limpio")
         
         await emit_validator_complete(audit_id, validator_out.recommendation)
+        progress = calculate_progress(4.5)
+        await event_bus.emit(AuditEvent(
+            event_id=f"{audit_id}-validator-complete",
+            audit_id=audit_id,
+            timestamp=datetime.now().isoformat(),
+            agent="validator",
+            stage="complete",
+            message=f"Validación completada. Recomendación: {validator_out.recommendation}",
+            progress_pct=progress
+        ))
     except Exception as e:
         logger.error(f"Agent 3 falló: {e}")
         await emit_error(audit_id, "validator", str(e))
@@ -142,10 +231,30 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
     )
 
     await emit_explainer_start(audit_id)
+    progress = calculate_progress(5)
+    await event_bus.emit(AuditEvent(
+        event_id=f"{audit_id}-explainer-start",
+        audit_id=audit_id,
+        timestamp=datetime.now().isoformat(),
+        agent="explainer",
+        stage="start",
+        message="Generando reporte ejecutivo.",
+        progress_pct=progress
+    ))
 
     try:
         explainer_out = await explainer_agent.generate_report(partial_result)
         await emit_explainer_complete(audit_id, explainer_out.next_action)
+        progress = calculate_progress(5.5)
+        await event_bus.emit(AuditEvent(
+            event_id=f"{audit_id}-explainer-complete",
+            audit_id=audit_id,
+            timestamp=datetime.now().isoformat(),
+            agent="explainer",
+            stage="complete",
+            message=f"Reporte ejecutivo generado. Acción sugerida: {explainer_out.next_action}",
+            progress_pct=progress
+        ))
     except Exception as e:
         logger.error(f"Agent 4 falló: {e}")
         await emit_error(audit_id, "explainer", str(e))
@@ -167,6 +276,16 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
 
     _persist_final_result(final_result)
     await emit_pipeline_complete(audit_id, final_status, final_result.total_processing_time_ms)
+    progress = calculate_progress(6)
+    await event_bus.emit(AuditEvent(
+        event_id=f"{audit_id}-pipeline-complete",
+        audit_id=audit_id,
+        timestamp=datetime.now().isoformat(),
+        agent="orchestrator",
+        stage="complete",
+        message=f"Pipeline finalizado. Estado: {final_status}",
+        progress_pct=progress
+    ))
 
     return final_result
 
@@ -179,6 +298,17 @@ async def _handle_critical_failure(audit_id, pdf_path, vision, error, start_time
     )
     _persist_final_result(result)
     await emit_pipeline_complete(audit_id, "FAILED", result.total_processing_time_ms)
+    progress = calculate_progress(6)
+    await event_bus.emit(AuditEvent(
+        event_id=f"{audit_id}-pipeline-failed",
+        audit_id=audit_id,
+        timestamp=datetime.now().isoformat(),
+        agent="orchestrator",
+        stage="error",
+        message=f"Pipeline fallido: {error}",
+        progress_pct=progress,
+        severity="error"
+    ))
     return result
 
 _NEXT_ACTION_TO_STATUS = {
@@ -198,31 +328,38 @@ _SEVERITY_ES = {
 }
 
 def _persist_final_result(result: PipelineResult):
-    """Guarda el resultado consolidado en la tabla audit_results."""
+    """Guarda el resultado consolidado en la tabla audit_results con validaciones de seguridad."""
     try:
-        issues_str = str(result.validation.issues_found) if result.validation else ""
+        # Validación segura de atributos anidados usando getattr o chequeos explícitos
+        val = result.validation
+        reasoning = result.reasoning
+        explanation = result.explanation
+        
+        issues_str = str(val.issues_found) if val and val.issues_found else ""
         is_dup = "DUPLICADO" in issues_str
         is_bl = "LISTA NEGRA" in issues_str
 
-        recommendation = result.validation.recommendation if result.validation else "UNCERTAIN"
+        recommendation = val.recommendation if val else "UNCERTAIN"
         fraud_class = "FRAUDE_CONFIRMADO" if (is_dup or is_bl) else _RECOMMENDATION_TO_FRAUD.get(recommendation, "SOSPECHOSO")
-        severity_raw = result.validation.validation_result.severity_confirmed if result.validation else "MEDIUM"
-        next_action = result.explanation.next_action if result.explanation else "AWAIT_HUMAN_DECISION"
+        
+        # Acceso seguro a atributos de validación y explicación
+        severity_raw = val.validation_result.severity_confirmed if (val and val.validation_result) else "MEDIUM"
+        next_action = explanation.next_action if explanation else "AWAIT_HUMAN_DECISION"
         
         data = {
             "doc_id": result.document_id,
             "result_json": result.model_dump(mode="json"),
-            "fraud_type": result.reasoning.trap_detected if result.reasoning else "Unknown",
+            "fraud_type": reasoning.trap_detected if reasoning else "Unknown",
             "fraud_classification": fraud_class,
             "severity": _SEVERITY_ES.get(severity_raw, "MEDIO"),
-            "reasoning_chain": "; ".join(f"[{s.step}] {s.conclusion}" for s in result.reasoning.reasoning_chain) if result.reasoning else "",
-            "confidence_score": float(result.explanation.confidence_breakdown.overall_confidence) if result.explanation else 0.0,
-            "math_validation": result.validation.validation_result.math_verified if result.validation else None,
+            "reasoning_chain": "; ".join(f"[{s.step}] {s.conclusion}" for s in reasoning.reasoning_chain) if reasoning and reasoning.reasoning_chain else "",
+            "confidence_score": float(explanation.confidence_breakdown.overall_confidence) if explanation and explanation.confidence_breakdown else 0.0,
+            "math_validation": val.validation_result.math_verified if (val and val.validation_result) else None,
             "is_duplicate": is_dup,
             "is_blacklisted": is_bl,
-            "integrity_passed": not (result.validation.validation_result.trap_is_real) if result.validation else False,
+            "integrity_passed": not (val.validation_result.trap_is_real) if (val and val.validation_result) else False,
             "final_status": _NEXT_ACTION_TO_STATUS.get(next_action, "FLAG"),
-            "executive_report": result.explanation.markdown_report if result.explanation else "Pipeline incompleto",
+            "executive_report": explanation.markdown_report if explanation else "Pipeline incompleto",
             "recommended_action": next_action,
             "pipeline_version": "2.0.0",
             "processing_time_ms": result.total_processing_time_ms,
