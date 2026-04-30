@@ -134,8 +134,15 @@ export default function DashboardPage() {
           transition={{ duration: 0.45, ease: "easeOut" }}
         >
           <div className="flex items-center gap-6">
-            <h1 className="text-2xl font-black uppercase italic tracking-tighter">
+            <h1 className="text-2xl font-black uppercase italic tracking-tighter relative overflow-hidden select-none">
               ATLAS <span className="text-white/20">CMD_CENTER</span>
+              <span
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: "linear-gradient(105deg, transparent 30%, rgba(237,28,36,0.55) 50%, transparent 70%)",
+                  animation: "redSweep 3.2s ease-in-out infinite",
+                }}
+              />
             </h1>
             <div className="font-mono text-[8px] text-red-500 uppercase tracking-widest animate-pulse">
               ● Bulk_Queue_Active
@@ -286,6 +293,11 @@ export default function DashboardPage() {
         @keyframes ticker {
           0%   { transform: translateX(0); }
           100% { transform: translateX(-50%); }
+        }
+        @keyframes redSweep {
+          0%   { transform: translateX(-120%); }
+          60%  { transform: translateX(120%); }
+          100% { transform: translateX(120%); }
         }
       `}</style>
     </div>

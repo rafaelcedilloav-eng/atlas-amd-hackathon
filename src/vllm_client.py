@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://165.245.141.216:8000/v1")
 VLLM_MODEL    = os.getenv("VLLM_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B")
-VLLM_TIMEOUT  = int(os.getenv("VLLM_TIMEOUT", "120"))
+VLLM_TIMEOUT  = int(os.getenv("VLLM_TIMEOUT", "60"))
 
 # vLLM no requiere API key real si es una instancia privada
 client = OpenAI(

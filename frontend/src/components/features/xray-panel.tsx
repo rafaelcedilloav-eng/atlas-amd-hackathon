@@ -126,6 +126,13 @@ export function XRayPanel({ auditId, phase = "idle", onReset }: XRayPanelProps) 
       setProgress(0);
       setComplete(false);
       connect(auditId);
+    } else {
+      esRef.current?.close();
+      setEvents([]);
+      setStatuses({});
+      setProgress(0);
+      setComplete(false);
+      setConnected(false);
     }
     return () => { esRef.current?.close(); };
   }, [auditId, connect]);

@@ -130,9 +130,10 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
   };
 
   const handleClose = () => {
-    if (isRunning) return;
-    setQueue([]);
-    setGlobalError(null);
+    if (!isRunning) {
+      setQueue([]);
+      setGlobalError(null);
+    }
     onClose();
   };
 
@@ -192,8 +193,8 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
               </div>
               <button
                 onClick={handleClose}
-                disabled={isRunning}
-                className="w-8 h-8 bg-white/5 rounded flex items-center justify-center hover:bg-amd-red hover:text-white transition-all disabled:opacity-20"
+                title={isRunning ? "Close (upload continues in background)" : "Close"}
+                className="w-8 h-8 bg-white/5 rounded flex items-center justify-center hover:bg-amd-red hover:text-white transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -254,7 +255,9 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
                         {item.file.name}
                       </p>
                       <p className="text-[10px] font-mono text-amd-gray-500 mt-0.5">
-                        {(item.file.size / (1024 * 1024)).toFixed(2)} MB
+                        {item.file.size < 1024 * 1024
+                          ? `${Math.max(1, Math.round(item.file.size / 1024))} KB`
+                          : `${(item.file.size / (1024 * 1024)).toFixed(2)} MB`}
                         {item.error && (
                           <span className="text-red-400 ml-2">{item.error}</span>
                         )}
