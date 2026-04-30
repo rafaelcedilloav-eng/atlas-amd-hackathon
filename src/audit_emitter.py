@@ -38,6 +38,12 @@ class AuditEventBus:
         self._history[audit_id] = []
         return q
 
+    def get_or_create_stream(self, audit_id: str) -> asyncio.Queue:
+        """Returns existing queue if SSE already connected, otherwise creates new one."""
+        if audit_id not in self._queues:
+            return self.create_audit_stream(audit_id)
+        return self._queues[audit_id]
+
     async def emit(self, event: AuditEvent):
         d = asdict(event)
         if event.audit_id in self._history:

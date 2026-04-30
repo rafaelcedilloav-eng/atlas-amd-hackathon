@@ -83,27 +83,44 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
     setQueue((prev) => prev.filter((i) => i.id !== id));
   };
 
+  const computeSHA256 = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  };
+
   const handleSubmit = async () => {
     if (isRunning || queue.length === 0) return;
     setIsRunning(true);
     setGlobalError(null);
 
-    // Signal XRayPanel to show "connecting" state
-    startUploading();
-
     const waiting = queue.filter((i) => i.status === "waiting");
-    let lastDocumentId: string | null = null;
 
+    // Compute SHA256 of first file immediately — same algorithm as Python backend
+    // This lets us open SSE BEFORE the upload starts for true real-time streaming
+    try {
+      const firstAuditId = await computeSHA256(waiting[0].file);
+      setAuditComplete(firstAuditId);
+      onClose();
+      setQueue([]);
+    } catch {
+      startUploading(); // fallback: show connecting spinner
+    }
+
+    // Upload all files in background — pipeline will emit SSE events live
     for (const item of waiting) {
       setQueue((prev) =>
         prev.map((qi) => (qi.id === item.id ? { ...qi, status: "processing" as FileStatus } : qi))
       );
       try {
         const result = await atlasApi.uploadFile(item.file);
-        lastDocumentId = result.document_id;
         setQueue((prev) =>
           prev.map((qi) => (qi.id === item.id ? { ...qi, status: "done" as FileStatus } : qi))
         );
+        // Update to final document_id (confirms SHA256 match)
+        if (result.document_id) setAuditComplete(result.document_id);
       } catch (err) {
         const msg = (err as Error).message || "Processing failed.";
         setQueue((prev) =>
@@ -115,14 +132,6 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
     }
 
     setIsRunning(false);
-
-    // Activate XRayPanel with the last processed document's id, then close modal
-    if (lastDocumentId) {
-      setAuditComplete(lastDocumentId);
-      onClose();
-      setQueue([]);
-    }
-
     queryClient.invalidateQueries({ queryKey: ["audits"] });
     queryClient.invalidateQueries({ queryKey: ["recent-audits"] });
     queryClient.invalidateQueries({ queryKey: ["atlas-stats"] });

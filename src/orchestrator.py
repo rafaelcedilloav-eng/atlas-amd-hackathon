@@ -40,8 +40,8 @@ async def run_pipeline(pdf_path: str) -> PipelineResult:
     vision_out = await vision_agent.analyze_document(pdf_path)
     audit_id   = vision_out.document_id
 
-    # Create SSE stream now that we have the real audit_id
-    event_bus.create_audit_stream(audit_id)
+    # Get or create SSE stream — frontend may have connected before pipeline started
+    event_bus.get_or_create_stream(audit_id)
 
     # Emit vision events (for SSE history replay)
     await emit_vision_start(audit_id)
