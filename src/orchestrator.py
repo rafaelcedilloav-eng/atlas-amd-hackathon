@@ -34,7 +34,14 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
     Ejecuta el pipeline completo de ATLAS v2.0 con Compliance y X-Ray.
     """
     start_time = time.time()
-    
+
+    # Pre-compute doc_id so the SSE stream is registered before the first event.
+    # The frontend computes the same SHA256 client-side to connect immediately.
+    import hashlib
+    with open(pdf_path, "rb") as _fh:
+        audit_id = audit_id or hashlib.sha256(_fh.read()).hexdigest()
+    event_bus.get_or_create_stream(audit_id)
+
     # Instanciar agentes
     vision_agent = VisionAnalyzerAgent()
     reasoning_agent = ReasoningAgent()
@@ -42,13 +49,9 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
     explainer_agent = ExplainerAgent()
 
     # ── 1. VISION (Extracción) ──────────────────────────────────────────────
-    await emit_vision_start(audit_id or "pending")
-    
+    await emit_vision_start(audit_id)
+
     vision_out = await vision_agent.analyze_document(pdf_path)
-    audit_id = vision_out.document_id
-    
-    # Register SSE stream
-    event_bus.get_or_create_stream(audit_id)
     
     # Quality Gate 1→2
     g12 = gate_1_2(vision_out)
