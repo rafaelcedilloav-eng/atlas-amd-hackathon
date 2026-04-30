@@ -5,6 +5,9 @@
 *.pem
 *.key
 *.pub
+*-key.json
+*-credentials.json
+atlas-hack-*.json
 
 # Virtual Environment
 venv/
