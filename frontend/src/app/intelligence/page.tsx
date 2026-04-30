@@ -10,7 +10,7 @@ import type { CountryData } from "@/components/features/world-map";
 
 // Dynamic import — react-simple-maps is client-only (no SSR)
 const WorldMap = dynamic(
-  () => import("@/components/features/world-map").then((m) => ({ default: m.WorldMap })),
+  () => import("@/components/features/world-map").then((m) => m.default),
   { ssr: false, loading: () => <MapPlaceholder /> }
 );
 
@@ -390,8 +390,7 @@ export default function IntelligencePage() {
           <div className="absolute inset-0 top-10 bottom-0">
             <WorldMap
               key={activeCompany.id}
-              countries={activeCompany.countries}
-              companyName={activeCompany.name}
+              data={activeCompany.countries}
             />
           </div>
         </motion.main>

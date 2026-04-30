@@ -1,35 +1,37 @@
 """
-Pydantic schemas — contratos de datos entre agentes ATLAS.
+Pydantic schemas v2.0 — contratos de datos entre agentes ATLAS.
+Incluye ComplianceResult para los 11 países.
 """
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional, Literal, Annotated, Dict, Any
 from datetime import datetime
 
+# ── Vision ───────────────────────────────────────────────────────────────────
 
 class ExtractedField(BaseModel):
-    value: Decimal | str | None
+    value: Decimal | str | List[str] | None
     confidence: float = Field(ge=0.0, le=1.0)
-
 
 class VisionOutput(BaseModel):
     document_id: str
     document_type: Literal["invoice", "contract", "unknown"]
     pdf_path: str
-    extracted_fields: dict[str, ExtractedField]
+    extracted_fields: Dict[str, ExtractedField]
     detected_issues: List[str]
     confidence: float = Field(ge=0.0, le=1.0)
     model_used: str
     processing_time_ms: int
     timestamp: datetime
+    raw_text: Optional[str] = None  # Necesario para Compliance
 
+# ── Reasoning ────────────────────────────────────────────────────────────────
 
 class ReasoningStep(BaseModel):
     step: int
     description: str
     evidence: str
     conclusion: str
-
 
 class ReasoningOutput(BaseModel):
     document_id: str
@@ -45,6 +47,7 @@ class ReasoningOutput(BaseModel):
     timestamp: datetime
     used_fallback: bool = False
 
+# ── Validator ────────────────────────────────────────────────────────────────
 
 class ValidationResult(BaseModel):
     logically_sound: bool
@@ -53,28 +56,38 @@ class ValidationResult(BaseModel):
     math_verified: Optional[bool] = None
     math_verification_detail: Optional[str] = None
 
-
 class ValidatorOutput(BaseModel):
     model_config = ConfigDict(json_encoders={Decimal: str})
-
     document_id: str
     trap_id: str
     validation_result: ValidationResult
     validation_confidence: Decimal = Field(ge=Decimal("0.0"), le=Decimal("1.0"))
     issues_found: List[str]
     adjustments: List[str]
-    recommendation: Literal["APPROVE", "FLAG", "UNCERTAIN"]
+    recommendation: Literal["APPROVE", "FORWARD_FOR_REVIEW", "FLAG", "UNCERTAIN"]
     recommendation_detail: str
     model_used: str
+    processing_time_ms: int
     timestamp: datetime
 
+# ── Market Intelligence (para el mapa) ───────────────────────────────────────
+
+class MarketData(BaseModel):
+    country_code: str
+    participation_pct: float = Field(ge=0.0, le=100.0)
+    status: Literal["Market Entry", "Expanding", "Established"]
+    influence_score: int = Field(ge=1, le=10)
+    audits_completed: int = 0
+    alerts_forenses: int = 0
+    risk_level: Literal["low", "medium", "high", "critical"] = "low"
+
+# ── Explainer ────────────────────────────────────────────────────────────────
 
 class ConfidenceBreakdown(BaseModel):
     vision_confidence: float
     reasoning_confidence: float
     validation_confidence: float
     overall_confidence: float
-
 
 class ExplanationContent(BaseModel):
     title: str
@@ -83,7 +96,6 @@ class ExplanationContent(BaseModel):
     why_its_a_trap: str
     what_to_do: List[str]
     financial_impact: str
-
 
 class ExplainerOutput(BaseModel):
     document_id: str
@@ -97,9 +109,9 @@ class ExplainerOutput(BaseModel):
     language: str = "es-MX"
     markdown_report: str
     timestamp: datetime
+    market_intelligence: Optional[List[MarketData]] = None
 
-
-# ── Compliance (11 países) ────────────────────────────────────────────────────
+# ── NUEVO: Compliance (11 países) ────────────────────────────────────────────
 
 class ComplianceFinding(BaseModel):
     rule: str
@@ -109,7 +121,6 @@ class ComplianceFinding(BaseModel):
     country: str
     article_ref: Optional[str] = None
 
-
 class ComplianceResult(BaseModel):
     country_detected: str
     country_confidence: float = Field(ge=0.0, le=1.0)
@@ -118,21 +129,7 @@ class ComplianceResult(BaseModel):
     raw_extracts: Dict[str, Any]
     cross_border_flags: List[str]
 
-
-# ── Market Intelligence (world map) ──────────────────────────────────────────
-
-class MarketData(BaseModel):
-    country_code: str
-    country_name: str = ""
-    participation_pct: float = Field(ge=0.0, le=100.0)
-    status: Literal["Market Entry", "Expanding", "Established"]
-    influence_score: int = Field(ge=1, le=10)
-    audits_completed: int = 0
-    alerts_forenses: int = 0
-    risk_level: Literal["low", "medium", "high", "critical"] = "low"
-
-
-# ── Pipeline Result ───────────────────────────────────────────────────────────
+# ── PipelineResult v2.0 ──────────────────────────────────────────────────────
 
 class PipelineResult(BaseModel):
     document_id: str
@@ -147,3 +144,16 @@ class PipelineResult(BaseModel):
     total_processing_time_ms: int
     error: Optional[str] = None
     timestamp: datetime
+
+# ── Audit Event (para SSE) ───────────────────────────────────────────────────
+
+class AuditEvent(BaseModel):
+    event_id: str
+    audit_id: str
+    timestamp: str
+    agent: Literal["vision", "compliance", "reasoning", "validator", "explainer", "orchestrator"]
+    stage: Literal["start", "processing", "complete", "error"]
+    message: str
+    detail: Optional[Dict[str, Any]] = None
+    progress_pct: int = Field(ge=0, le=100)
+    severity: Literal["info", "warning", "error", "success"] = "info"
