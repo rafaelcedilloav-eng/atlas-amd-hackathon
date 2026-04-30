@@ -11,6 +11,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -18,6 +19,7 @@ from dotenv import load_dotenv
 from src.orchestrator import run_pipeline
 from src.schemas import PipelineResult
 from src.supabase_client import get_client, reset_client
+from src.audit_emitter import event_bus
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -333,6 +335,76 @@ async def human_decision(req: HumanDecisionRequest):
         "decision": req.decision,
         "timestamp": datetime.now().isoformat(),
     }
+
+
+# ── X-Ray SSE endpoints ───────────────────────────────────────────────────────
+
+@app.get("/stream/{audit_id}")
+async def stream_audit_events(audit_id: str):
+    """
+    Server-Sent Events for the X-Ray Panel.
+    Replays history if pipeline is done; streams live if still running.
+    No API key required (read-only event stream).
+    """
+    if not re.fullmatch(r"[a-f0-9]{64}", audit_id):
+        raise HTTPException(status_code=400, detail="Invalid audit_id.")
+
+    async def generator():
+        async for chunk in event_bus.get_events(audit_id):
+            yield chunk
+
+    return StreamingResponse(
+        generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.get("/stream/history/{audit_id}")
+async def get_audit_history(audit_id: str):
+    """Returns the full event history for an audit (for reconnection / debugging)."""
+    if not re.fullmatch(r"[a-f0-9]{64}", audit_id):
+        raise HTTPException(status_code=400, detail="Invalid audit_id.")
+    history = event_bus.get_history(audit_id)
+    return {"audit_id": audit_id, "events": history, "total": len(history)}
+
+
+@app.get("/compliance/{document_id}", dependencies=[Depends(_require_api_key)])
+async def get_compliance_result(document_id: str):
+    """Returns the compliance check result for a document (11-country analysis)."""
+    if not re.fullmatch(r"[a-f0-9]{64}", document_id):
+        raise HTTPException(status_code=400, detail="Invalid document_id.")
+    try:
+        sb = get_client()
+        resp = (
+            sb.table("audit_results")
+            .select("result_json")
+            .eq("doc_id", document_id)
+            .limit(1)
+            .execute()
+        )
+        if not resp.data:
+            raise HTTPException(status_code=404, detail="Result not found.")
+        result_json  = resp.data[0].get("result_json") or {}
+        compliance   = result_json.get("compliance") or {}
+        return {
+            "document_id":       document_id,
+            "country_detected":  compliance.get("country_detected", "UNKNOWN"),
+            "country_confidence": compliance.get("country_confidence", 0),
+            "compliance_score":  compliance.get("compliance_score", 0),
+            "findings_count":    len(compliance.get("findings", [])),
+            "findings":          compliance.get("findings", []),
+            "cross_border_flags": compliance.get("cross_border_flags", []),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching compliance {document_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching compliance data.")
 
 
 if __name__ == "__main__":
