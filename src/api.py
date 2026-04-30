@@ -407,6 +407,45 @@ async def get_compliance_result(document_id: str):
         raise HTTPException(status_code=500, detail="Error fetching compliance data.")
 
 
+@app.get("/health")
+async def health_check():
+    """Public endpoint — shows GPU/Supabase reachability at a glance."""
+    import httpx
+    from src.vllm_client import VLLM_BASE_URL, VLLM_MODEL
+
+    # Check vLLM
+    gpu_ok = False
+    gpu_error = None
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as c:
+            r = await c.get(f"{VLLM_BASE_URL.rstrip('/v1')}/v1/models")
+            gpu_ok = r.status_code == 200
+            if not gpu_ok:
+                gpu_error = f"HTTP {r.status_code}"
+    except Exception as e:
+        gpu_error = str(e)[:120]
+
+    # Check Supabase
+    sb_ok = False
+    try:
+        sb = get_client()
+        sb.table("audit_results").select("id", count="exact").limit(1).execute()
+        sb_ok = True
+    except Exception as e:
+        pass
+
+    return {
+        "status": "ok" if (gpu_ok and sb_ok) else "degraded",
+        "gpu": {
+            "url":       VLLM_BASE_URL,
+            "model":     VLLM_MODEL,
+            "reachable": gpu_ok,
+            "error":     gpu_error,
+        },
+        "supabase": {"reachable": sb_ok},
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8080)
