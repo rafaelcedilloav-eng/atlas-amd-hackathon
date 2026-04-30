@@ -55,9 +55,9 @@ Como auditor forense senior, analiza estos datos buscando "trampas" o fraudes co
 4. Montos inflados o conceptos vagos.
 
 REGLAS DE SEVERIDAD:
-- CRITICAL: Si falta la fecha de expiración en un contrato, si el total no coincide por mucho (error matemático), o si el proveedor está en blacklist.
+- CRITICAL: Si falta la fecha de expiración en un contrato, si el total no coincide por mucho (error matemático), si falta la información del Proveedor/Cliente en una factura, o si el proveedor está en blacklist.
 - HIGH: Discrepancias menores o campos no obligatorios faltantes.
-- NONE: Si el documento es correcto y no presenta ninguna de las anomalías anteriores, marca trap_detected como "No Trap" y severity como "NONE".
+- NONE: Si el documento es correcto, está completo y no presenta ninguna de las anomalías anteriores, marca trap_detected como "No Trap" y severity como "NONE".
 
 DEBES RESPONDER EN FORMATO JSON SIGUIENDO ESTA ESTRUCTURA:
 {{

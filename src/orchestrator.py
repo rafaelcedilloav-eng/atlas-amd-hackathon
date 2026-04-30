@@ -139,7 +139,7 @@ async def run_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pipelin
     )
 
     await emit_explainer_start(audit_id)
-    
+
     try:
         explainer_out = await explainer_agent.generate_report(partial_result)
         await emit_explainer_complete(audit_id, explainer_out.next_action)
