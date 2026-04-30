@@ -73,6 +73,15 @@ services:
   - key: POPPLER_PATH
     scope: RUN_AND_BUILD_TIME
     value: "/usr/bin"
+  - key: GOOGLE_CLOUD_PROJECT
+    scope: RUN_AND_BUILD_TIME
+    value: "SET_IN_DO_DASHBOARD"
+  - key: GOOGLE_CLOUD_LOCATION
+    scope: RUN_AND_BUILD_TIME
+    value: "us-central1"
+  - key: GOOGLE_SERVICE_ACCOUNT_JSON
+    scope: RUN_AND_BUILD_TIME
+    value: "SET_IN_DO_DASHBOARD"
   - key: LOG_LEVEL
     scope: RUN_AND_BUILD_TIME
     value: "INFO"
