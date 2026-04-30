@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { atlasApi } from "@/services/api";
 import { cn } from "@/lib/utils";
+import { useAuditStore } from "@/store/audit-store";
 
 const MAX_FILES = 10;
 const MAX_SIZE_MB = 20;
@@ -30,6 +31,7 @@ interface UploadModalProps {
 export function UploadModal({ open, onClose }: UploadModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { startUploading, setComplete: setAuditComplete } = useAuditStore();
   const [dragging, setDragging] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -86,14 +88,19 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
     setIsRunning(true);
     setGlobalError(null);
 
+    // Signal XRayPanel to show "connecting" state
+    startUploading();
+
     const waiting = queue.filter((i) => i.status === "waiting");
+    let lastDocumentId: string | null = null;
 
     for (const item of waiting) {
       setQueue((prev) =>
         prev.map((qi) => (qi.id === item.id ? { ...qi, status: "processing" as FileStatus } : qi))
       );
       try {
-        await atlasApi.uploadFile(item.file);
+        const result = await atlasApi.uploadFile(item.file);
+        lastDocumentId = result.document_id;
         setQueue((prev) =>
           prev.map((qi) => (qi.id === item.id ? { ...qi, status: "done" as FileStatus } : qi))
         );
@@ -108,9 +115,18 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
     }
 
     setIsRunning(false);
+
+    // Activate XRayPanel with the last processed document's id, then close modal
+    if (lastDocumentId) {
+      setAuditComplete(lastDocumentId);
+      onClose();
+      setQueue([]);
+    }
+
     queryClient.invalidateQueries({ queryKey: ["audits"] });
     queryClient.invalidateQueries({ queryKey: ["recent-audits"] });
     queryClient.invalidateQueries({ queryKey: ["atlas-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-recent-audits"] });
   };
 
   const handleClose = () => {

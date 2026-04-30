@@ -3,7 +3,7 @@ Pydantic schemas — contratos de datos entre agentes ATLAS.
 """
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional, Literal, Annotated
+from typing import List, Optional, Literal, Annotated, Dict, Any
 from datetime import datetime
 
 
@@ -99,14 +99,51 @@ class ExplainerOutput(BaseModel):
     timestamp: datetime
 
 
+# ── Compliance (11 países) ────────────────────────────────────────────────────
+
+class ComplianceFinding(BaseModel):
+    rule: str
+    severity: Literal["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    message: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    country: str
+    article_ref: Optional[str] = None
+
+
+class ComplianceResult(BaseModel):
+    country_detected: str
+    country_confidence: float = Field(ge=0.0, le=1.0)
+    findings: List[ComplianceFinding]
+    compliance_score: float = Field(ge=0.0, le=1.0)
+    raw_extracts: Dict[str, Any]
+    cross_border_flags: List[str]
+
+
+# ── Market Intelligence (world map) ──────────────────────────────────────────
+
+class MarketData(BaseModel):
+    country_code: str
+    country_name: str = ""
+    participation_pct: float = Field(ge=0.0, le=100.0)
+    status: Literal["Market Entry", "Expanding", "Established"]
+    influence_score: int = Field(ge=1, le=10)
+    audits_completed: int = 0
+    alerts_forenses: int = 0
+    risk_level: Literal["low", "medium", "high", "critical"] = "low"
+
+
+# ── Pipeline Result ───────────────────────────────────────────────────────────
+
 class PipelineResult(BaseModel):
     document_id: str
     pdf_path: str
     status: Literal["COMPLETE", "PARTIAL", "FAILED"]
     vision: Optional[VisionOutput] = None
+    compliance: Optional[ComplianceResult] = None
     reasoning: Optional[ReasoningOutput] = None
     validation: Optional[ValidatorOutput] = None
     explanation: Optional[ExplainerOutput] = None
+    market_intelligence: Optional[List[MarketData]] = None
     total_processing_time_ms: int
     error: Optional[str] = None
     timestamp: datetime

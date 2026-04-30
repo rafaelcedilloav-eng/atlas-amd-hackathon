@@ -8,12 +8,15 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { atlasApi } from "@/services/api";
 import { UploadModal } from "@/components/features/upload-modal";
+import { XRayPanel } from "@/components/features/xray-panel";
+import { useAuditStore } from "@/store/audit-store";
 
 const NAV_LINKS = [
-  { href: "/dashboard", label: "Dashboard_Overview" },
-  { href: "/audits",    label: "Forensic_Archive"  },
-  { href: "/analytics", label: "Analytics_Vault"   },
-  { href: "/hardware",  label: "Orchestration_Node" },
+  { href: "/dashboard",    label: "Dashboard_Overview"  },
+  { href: "/audits",       label: "Forensic_Archive"    },
+  { href: "/analytics",    label: "Analytics_Vault"     },
+  { href: "/hardware",     label: "Orchestration_Node"  },
+  { href: "/intelligence", label: "Global_Intelligence" },
 ];
 
 const TICKER = [
@@ -35,15 +38,17 @@ export default function DashboardPage() {
     refetchInterval: 30_000,
   });
 
-  const { data: recentAudits, isLoading: auditsLoading } = useQuery({
-    queryKey:        ["dashboard-recent-audits"],
-    queryFn:         () => atlasApi.getAudits(8),
-    refetchInterval: 10_000,
+  const { data: recentAudits } = useQuery({
+    queryKey:  ["dashboard-recent-audits"],
+    queryFn:   () => atlasApi.getAudits(8),
+    staleTime: 10_000,
   });
 
   const total     = stats?.total_audits    ?? 0;
   const fraud     = stats?.fraud_detected  ?? 0;
   const cleanDocs = Math.max(0, total - fraud);
+
+  const { activeAuditId, phase, reset: resetAudit } = useAuditStore();
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -175,77 +180,18 @@ export default function DashboardPage() {
           </div>
         </motion.aside>
 
-        {/* Center — Neural Activity Feed */}
+        {/* Center — X-Ray Forensic Reasoning Theater */}
         <motion.main
           className="glass-mc flex flex-col overflow-hidden"
           initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, ease: "easeOut", delay: 0.14 }}
         >
-          <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04] shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-[9px] font-mono font-bold uppercase tracking-[0.3em] text-red-500">
-                Neural_Activity_Feed
-              </span>
-            </div>
-            <span className="text-[8px] font-mono text-white/20 animate-pulse">● LIVE</span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {auditsLoading && (
-              <div className="flex flex-col gap-2 p-4">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="h-10 rounded bg-white/[0.02] animate-pulse" style={{ animationDelay: `${i * 0.07}s` }} />
-                ))}
-              </div>
-            )}
-            {recentAudits?.audits.map((audit, i) => (
-              <motion.div
-                key={audit.doc_id}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.055, duration: 0.3, ease: "easeOut" }}
-                className="flex items-center gap-3 px-5 py-2.5 border-b border-white/[0.03] hover:bg-white/[0.025] transition-colors group cursor-default"
-              >
-                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                  audit.severity === "CRITICAL" ? "bg-red-500 animate-pulse" :
-                  audit.severity === "HIGH"     ? "bg-orange-500" :
-                  audit.severity === "MEDIUM"   ? "bg-yellow-500" :
-                  audit.final_status === "COMPLETE" ? "bg-green-500" : "bg-white/30 animate-pulse"
-                }`} />
-                <span className="font-mono text-[9px] text-white/40 shrink-0 w-16 group-hover:text-white/60 transition-colors tabular-nums">
-                  {audit.doc_id.slice(0, 8)}
-                </span>
-                <span className="font-mono text-[8px] text-white/25 truncate flex-1">
-                  {audit.fraud_type ?? audit.fraud_classification ?? "Clean_Document"}
-                </span>
-                {audit.severity && audit.severity !== "NONE" && (
-                  <span className={`text-[7px] font-bold px-1.5 py-0.5 shrink-0 border ${
-                    audit.severity === "CRITICAL" ? "text-red-500 border-red-500/30" :
-                    audit.severity === "HIGH"     ? "text-orange-400 border-orange-400/30" :
-                    audit.severity === "MEDIUM"   ? "text-yellow-400 border-yellow-400/30" :
-                    "text-white/25 border-white/10"
-                  }`}>
-                    {audit.severity}
-                  </span>
-                )}
-                <span className="font-mono text-[8px] text-white/15 shrink-0 tabular-nums">
-                  {timeAgo(audit.created_at)}
-                </span>
-              </motion.div>
-            ))}
-            {recentAudits?.audits.length === 0 && !auditsLoading && (
-              <div className="flex flex-col items-center justify-center h-full gap-2 py-12 opacity-20">
-                <div className="font-mono text-[9px] tracking-[0.3em] uppercase">Awaiting_Data_Stream...</div>
-              </div>
-            )}
-          </div>
-
-          <div className="border-t border-white/[0.04] px-5 py-2.5 flex justify-between shrink-0">
-            <span className="font-mono text-[8px] text-white/15">{recentAudits?.total ?? 0} total processed</span>
-            <span className="font-mono text-[8px] text-red-500/40 animate-pulse">● STREAMING</span>
-          </div>
+          <XRayPanel
+            auditId={activeAuditId}
+            phase={phase}
+            onReset={resetAudit}
+          />
         </motion.main>
 
         {/* Right: Integrity Gate */}
