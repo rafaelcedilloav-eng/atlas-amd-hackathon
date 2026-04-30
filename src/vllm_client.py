@@ -24,7 +24,7 @@ client = OpenAI(
 def call_llm(
     prompt: str,
     system_prompt: str = "Eres un auditor forense experto en detección de fraude y errores contables.",
-    max_tokens: int = 4096,
+    max_tokens: int = 1024,
     temperature: float = 0.1
 ) -> str:
     """

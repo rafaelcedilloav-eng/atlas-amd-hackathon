@@ -39,7 +39,7 @@ services:
     value: "30"
   - key: VLLM_MAX_TOKENS
     scope: RUN_AND_BUILD_TIME
-    value: "4096"
+    value: "1024"
   - key: VLLM_TEMPERATURE
     scope: RUN_AND_BUILD_TIME
     value: "0.1"
