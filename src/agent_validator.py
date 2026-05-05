@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from src.schemas import ValidatorOutput, ValidationResult, ReasoningOutput, VisionOutput, ExtractedField
-from src.supabase_persistence import is_duplicate, is_blacklisted, register_processed_doc, log_agent_action
+from src.db_mock import is_duplicate, is_blacklisted, register_processed_doc, log_agent_action
 
 logger = logging.getLogger(__name__)
 

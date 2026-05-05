@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileSearch, ShieldCheck, Settings, Database, Cpu } from "lucide-react";
+import { LayoutDashboard, FileSearch, ShieldCheck, Settings, Database, Cpu, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -54,6 +54,24 @@ export const Sidebar = () => {
             </Link>
           );
         })}
+
+        {/* Predictive Engine Section */}
+        <p className="text-[10px] font-mono text-amd-gray-500 uppercase tracking-widest px-4 pt-6 mb-2">Predictive_Engine</p>
+        <Link
+          href="/sandbox"
+          className={cn(
+            "flex items-center gap-3 px-4 py-3 rounded border transition-all duration-300 group",
+            pathname === "/sandbox"
+              ? "bg-amd-red/10 text-amd-red font-bold border-amd-red/20"
+              : "text-amd-gray-300 hover:text-white hover:bg-amd-gray-900 border-transparent hover:border-amd-gray-800 font-medium"
+          )}
+        >
+          <FlaskConical className={cn(
+            "w-5 h-5 transition-all",
+            pathname === "/sandbox" ? "text-amd-red" : "group-hover:text-amd-red group-hover:scale-110"
+          )} />
+          <span className="text-sm uppercase tracking-tight">Sandbox</span>
+        </Link>
       </nav>
 
       {/* System Status Section */}

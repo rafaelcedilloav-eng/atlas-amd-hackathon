@@ -1,0 +1,44 @@
+name: atlas-dual-engine
+services:
+  core:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-core-engine
+    restart: unless-stopped
+    devices:
+      - "/dev/kfd:/dev/kfd"
+      - "/dev/dri:/dev/dri"
+    group_add:
+      - video
+      - render
+    volumes:
+      - "/mnt/scratch/models:/models:ro"
+      - "/mnt/atlas_data/adapters:/adapters:ro"
+    ports:
+      - "8000:8000"
+    command: >
+      python3 -m vllm.entrypoints.openai.api_server
+      --model /models/dragon-llama-finance-8b
+      --tensor-parallel-size 1
+      --gpu-memory-utilization 0.45
+      --enable-lora 
+      --lora-modules phi=/adapters/phi qwen=/adapters/qwen
+
+  vision:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-vision-engine
+    restart: unless-stopped
+    devices:
+      - "/dev/kfd:/dev/kfd"
+      - "/dev/dri:/dev/dri"
+    group_add:
+      - video
+      - render
+    volumes:
+      - "/mnt/scratch/models:/models:ro"
+    ports:
+      - "8001:8000"
+    command: >
+      python3 -m vllm.entrypoints.openai.api_server
+      --model /models/InternVL2-40B
+      --tensor-parallel-size 1
+      --gpu-memory-utilization 0.40

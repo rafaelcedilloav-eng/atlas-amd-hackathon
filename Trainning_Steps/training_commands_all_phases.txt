@@ -1,0 +1,244 @@
+================================================================================
+ATLAS 3-PHASE FINE-TUNING STRATEGY - COMPLETE COMMAND REFERENCE
+AMD MI300X (205GB VRAM) | ROCm 6.2.0+ | vLLM Multi-Motor Architecture
+================================================================================
+
+DEPLOYMENT TARGET MOTORS (after training completion):
+  - Motor 8000: Core/Reasoning (DeepSeek-R1-8B + Qwen3-14B)
+  - Motor 8002: Vision (InternVL2-40B) - unchanged
+  - Motor 11434: Compliance Router - unchanged
+
+DATASETS:
+  - atlas_training_dataset_final.jsonl: 6,437 records (used Phase 1-2)
+  - atlas_audit_master_unified.jsonl: 3,502 records (used Phase 3)
+
+================================================================================
+PART 0: PRE-TRAINING VALIDATION (RUN FIRST)
+================================================================================
+
+# Validate GPU, datasets, environment, and Python packages
+bash Trainning_Steps/validation_pre_training.sh
+
+Expected output:
+  - GPU detection (MI300X)
+  - VRAM check (205GB available)
+  - Required packages verified
+  - Datasets present
+  - Training scripts found
+  - All checks PASS
+
+If validation fails, fix issues before proceeding.
+
+================================================================================
+PHASE 1: PARALLEL QWEN3-14B + MISTRAL-7B (6,437 RECORDS)
+================================================================================
+Duration: ~6-8 hours each (parallel)
+Memory: ~84GB Qwen + ~50GB Mistral = ~161GB total (safe headroom)
+Output: /outputs/atlas_qwen3_14b_finetuned + /outputs/atlas_mistral_7b_finetuned
+
+RECOMMENDED: Use orchestration script (automatic process management)
+  bash Trainning_Steps/launch_phase1_parallel.sh
+
+ALTERNATIVE: Run manually in separate terminals (if preferred)
+
+Terminal 1 - Qwen3-14B:
+  cd /home/atlas-user
+  python3 Trainning_Steps/finetune_qwen3_14b.py
+
+  Expected log output:
+    - ATLAS Mistral-7B Legal FullFinetune
+    - GPU: MI300X (205 GB)
+    - Total: 6437 | splitting 95/5 train/eval
+    - Parameters: 14,080,768,000 | VRAM after load: 28.5 GB
+    - Starting training...
+    - Training loss: 0.3456 (approximate)
+    - Final eval loss: 0.4123 (approximate)
+    - Saving model to /outputs/atlas_qwen3_14b_finetuned
+
+Terminal 2 - Mistral-7B (start after ~30 seconds):
+  cd /home/atlas-user
+  sleep 30 && python3 Trainning_Steps/finetune_mistral_7b.py
+
+  Expected log output:
+    - ATLAS Mistral-7B Legal FullFinetune
+    - GPU: MI300X (205 GB)
+    - Total: 6437 | splitting 95/5 train/eval
+    - Parameters: 7,325,263,872 | VRAM after load: 14.2 GB
+    - Starting training...
+    - Training loss: 0.2891 (approximate)
+    - Final eval loss: 0.3745 (approximate)
+    - Saving model to /outputs/atlas_mistral_7b_finetuned
+
+PHASE 1 VALIDATION:
+  ls -lah /outputs/atlas_qwen3_14b_finetuned/     # Should show config.json, model files, tokenizer
+  ls -lah /outputs/atlas_mistral_7b_finetuned/    # Should show config.json, model files, tokenizer
+
+  Check log files:
+  tail -f logs/phase1_*/qwen3_14b.log
+  tail -f logs/phase1_*/mistral_7b.log
+
+================================================================================
+PHASE 2: SEQUENTIAL DEEPSEEK-R1-8B (6,437 RECORDS)
+================================================================================
+Duration: ~10-12 hours
+Memory: ~111GB peak (model 16 + grad 16 + opt 64 + act 15)
+Output: /outputs/atlas_deepseek_r1_8b
+
+RUN AFTER PHASE 1 IS COMPLETE:
+  python3 Trainning_Steps/finetune_deepseek_r1_8b.py
+
+  Expected log output:
+    - ATLAS DeepSeek-R1 Legal FullFinetune
+    - GPU: MI300X (205 GB)
+    - Total: 6437 | splitting 95/5 train/eval
+    - Parameters: 8,311,779,328 | VRAM after load: 16.0 GB
+    - Starting training...
+    - Training loss: 0.2156 (approximate)
+    - Final eval loss: 0.3012 (approximate)
+    - Saving model to /outputs/atlas_deepseek_r1_8b
+
+PHASE 2 VALIDATION:
+  ls -lah /outputs/atlas_deepseek_r1_8b/          # Should show config.json, model files, tokenizer
+
+================================================================================
+PHASE 3: SEQUENTIAL ALL 3 MODELS (3,502 RECORDS) - Optional Enhancement
+================================================================================
+Duration: ~3-4 hours each, ~10-12 hours sequential total
+Memory: Same as Phase 1-2 (each model runs alone)
+Output: Overwrites Phase 1-2 models with version 2 weights
+
+ONLY RUN IF:
+  - Phase 1-2 training was successful
+  - Want to further fine-tune on condensed dataset (quality over quantity)
+  - Have verification pass on original models
+
+RUN SEQUENTIALLY (one after another):
+
+  Step 1: Qwen3-14B on 3,502 records
+    python3 Trainning_Steps/finetune_qwen3_14b.py
+    # Modify CONFIG["dataset_path"] to point to atlas_audit_master_unified.jsonl first
+
+  Step 2: Mistral-7B on 3,502 records
+    python3 Trainning_Steps/finetune_mistral_7b.py
+    # Modify CONFIG["dataset_path"] to point to atlas_audit_master_unified.jsonl first
+
+  Step 3: DeepSeek-R1-8B on 3,502 records
+    python3 Trainning_Steps/finetune_deepseek_r1_8b.py
+    # Modify CONFIG["dataset_path"] to point to atlas_audit_master_unified.jsonl first
+
+NOTE: Create new scripts or use configuration override for Phase 3.
+
+================================================================================
+POST-TRAINING: DEPLOYMENT & INTEGRATION
+================================================================================
+
+After all phases are complete, models are stored at:
+  /outputs/atlas_qwen3_14b_finetuned/
+  /outputs/atlas_mistral_7b_finetuned/
+  /outputs/atlas_deepseek_r1_8b/
+
+NEXT STEPS:
+
+1. COPY MODELS TO MOTOR ENDPOINTS:
+   # Copy to vLLM Motor 8000 (Core/Reasoning)
+   cp -r /outputs/atlas_deepseek_r1_8b /motor_8000/models/
+   cp -r /outputs/atlas_qwen3_14b_finetuned /motor_8000/models/
+
+   # Copy to storage for backup
+   cp -r /outputs/atlas_mistral_7b_finetuned /model_backup/
+
+2. UPDATE MOTOR 8000 SERVING CONFIG:
+   Edit vLLM startup to include new models:
+     --model deepseek-ai/DeepSeek-R1-Distill-Llama-8B:/motor_8000/models/atlas_deepseek_r1_8b
+     --model Qwen/Qwen3-14B:/motor_8000/models/atlas_qwen3_14b_finetuned
+
+3. RESTART MOTORS:
+   vllm_client.py will auto-detect new models on next connection
+
+4. RUN INTEGRATION TEST:
+   # Full pipeline test with all models
+   curl -X POST http://localhost:8000/api/pipeline \
+     -H "Content-Type: application/json" \
+     -d '{"pdf_path": "test_audit.pdf", "audit_id": "test-001"}'
+
+   # Check X-Ray panel real-time visualization
+   # Verify all 5 agents appear in event stream
+
+5. VERIFY PERFORMANCE:
+   # Check model inference latency
+   python3 -c "from vllm import LLM; m=LLM('atlas_deepseek_r1_8b'); m.generate('test')"
+
+   # Monitor GPU memory during inference
+   rocm-smi --showmeminfo
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Q: Training runs out of VRAM during Phase 1 parallel execution
+A:
+  1. Reduce batch_size_per_gpu from 4 to 2 in the .py scripts
+  2. Run models sequentially instead of parallel (skip Phase 1 orchestration)
+  3. Check GPU memory with: rocm-smi --showmeminfo
+
+Q: Model download hangs from HuggingFace
+A:
+  1. Set environment: export HF_TOKEN=your_token
+  2. Pre-download models: huggingface-cli download Qwen/Qwen3-14B
+  3. Use cache directory: export HF_HOME=/cache
+
+Q: Training loss doesn't decrease
+A:
+  1. Check dataset format (must be valid JSON with messages field)
+  2. Verify learning_rate (2e-5 for Qwen, 1e-5 for DeepSeek)
+  3. Check gradient_accumulation_steps (should be 4-8)
+
+Q: Phase 2 (DeepSeek) crashes after Phase 1
+A:
+  1. Check /outputs/atlas_deepseek_r1_8b_started exists
+  2. Verify GPU memory cleared: rocm-smi --resetall
+  3. Monitor system RAM: free -h
+
+Q: Models not loading in Motor 8000 after deployment
+A:
+  1. Check file permissions: chmod -R 755 /motor_8000/models/
+  2. Verify model structure: ls -la model/pytorch_model.bin config.json
+  3. Test load: python3 -c "from transformers import AutoModel; AutoModel.from_pretrained('path')"
+
+================================================================================
+QUICK REFERENCE: FULL TRAINING TIMELINE
+================================================================================
+
+Assumed start: 2026-05-06 00:00 (user opens GPU)
+
+Phase 1 (Parallel):   0:00 - 8:00   (Qwen + Mistral in parallel, 6,437 records)
+Phase 2 (Sequential): 8:00 - 20:00  (DeepSeek, 6,437 records)
+Phase 3 (Optional):   20:00 - 32:00 (All 3 on 3,502 records)
+Deployment:           32:00+        (Copy models, update Motor 8000, test)
+
+Total without Phase 3: ~20 hours
+Total with Phase 3:    ~32 hours
+
+================================================================================
+MONITORING DURING TRAINING
+================================================================================
+
+Watch GPU usage in real-time:
+  watch -n 1 'rocm-smi --showmeminfo && rocm-smi --showuse'
+
+Watch training loss in real-time (in separate window):
+  tail -f logs/phase1_*/qwen3_14b.log | grep "loss"
+  tail -f logs/phase1_*/mistral_7b.log | grep "loss"
+
+Watch system resources:
+  htop -u atlas-user    # CPU, RAM usage
+  iotop                 # Disk I/O
+
+Check saved checkpoints:
+  ls -lah /outputs/atlas_qwen3_14b_finetuned/checkpoint-*/
+
+================================================================================
+END REFERENCE
+================================================================================
+Generated: 2026-05-05
+For questions: See Trainning_Steps/ directory or contact platform team
