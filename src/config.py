@@ -1,40 +1,57 @@
 """
 ATLAS System Configuration v3.0
 """
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
+
 class AtlasSettings(BaseSettings):
-    # Umbrales
     math_tolerance: float = 0.05
-    
-    # ── Modelos fine-tuned ATLAS (AMD MI300X) ──────────────────────────────
-    # Qwen3-14B: core reasoning + explainer + sandbox estándar  (puerto 8000)
+
+    # ── DO App Platform injects these ─────────────────────────────────────────
+    # VLLM_BASE_URL = "http://165.245.138.52:8000/v1"  (includes /v1)
+    # VLLMClient appends /v1/chat/completions, so we strip the trailing /v1
+    VLLM_BASE_URL: str = "http://localhost:8000/v1"
+    VLLM_MODEL: str = "atlas-r3-qwen3-14b"
+    VLLM_TIMEOUT: float = 30.0
+
+    # ── Derived fields (overwritten by model_validator below) ─────────────────
     core_url: str = "http://localhost:8000"
-    core_model: str = "atlas-r2-qwen3-14b"
+    core_model: str = "atlas-r3-qwen3-14b"
+    vision_url: str = "http://localhost:8000"
+    vision_model: str = "atlas-r3-qwen3-14b"
+    router_url: str = "http://localhost:8000"
+    router_model: str = "atlas-r3-qwen3-14b"
+    deepseek_url: str = "http://localhost:8000"
+    deepseek_model: str = "atlas-r3-qwen3-14b"
+    primary_model: str = "atlas-r3-qwen3-14b"
+    fallback_model: str = "atlas-r3-qwen3-14b"
 
-    # DeepSeek-R1-8B: sandbox Red Team / adversarial reasoning   (puerto 8001)
-    deepseek_url: str = "http://localhost:8001"
-    deepseek_model: str = "atlas-finanzas-deepseek-r1-8b"
-
-    # Mistral-7B-R2: compliance router / document triage          (puerto 8003)
-    router_url: str = "http://localhost:8003"
-    router_model: str = "atlas-mistral-7b-legal-r2"
-
-    # Vision: InternVL2 OCR                                       (puerto 8002)
-    vision_url: str = "http://localhost:8002"
-    vision_model: str = "InternVL2-Llama3-76B"
-
-    # Fallback interno (no se usa en producción AMD)
-    primary_model: str = "atlas-r2-qwen3-14b"
-    fallback_model: str = "atlas-finanzas-deepseek-r1-8b"
-
-    # Finance / Compliance
-    FINANCE_SERVICE_URL: str = "http://localhost:8080" # Placeholder o mismo API
-    
+    FINANCE_SERVICE_URL: str = "http://localhost:8080"
     ALLOWED_ORIGINS: list = ["*"]
-    
+
+    @model_validator(mode="after")
+    def apply_vllm_env(self) -> "AtlasSettings":
+        """Map VLLM_BASE_URL / VLLM_MODEL to all client configs."""
+        base = self.VLLM_BASE_URL.rstrip("/")
+        if base.endswith("/v1"):
+            base = base[:-3]
+        model = self.VLLM_MODEL
+        self.core_url = base
+        self.core_model = model
+        self.vision_url = base
+        self.vision_model = model
+        self.router_url = base
+        self.router_model = model
+        self.deepseek_url = base
+        self.deepseek_model = model
+        self.primary_model = model
+        self.fallback_model = model
+        return self
+
     class Config:
         env_file = ".env"
         extra = "ignore"
+
 
 settings = AtlasSettings()

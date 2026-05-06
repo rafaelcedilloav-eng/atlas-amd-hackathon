@@ -144,6 +144,6 @@ class VLLMClient:
             await self.session.close()
 
 # Instancias Globales
-core_vllm = VLLMClient(base_url=settings.core_url, model=settings.core_model, circuit_breaker=circuit_core)
-vision_vllm = VLLMClient(base_url=settings.vision_url, model=settings.vision_model, circuit_breaker=circuit_vision)
-router_vllm = VLLMClient(base_url=settings.router_url, model=settings.router_model, circuit_breaker=circuit_router)
+core_vllm = VLLMClient(base_url=settings.core_url, model=settings.core_model, timeout=settings.VLLM_TIMEOUT, circuit_breaker=circuit_core)
+vision_vllm = VLLMClient(base_url=settings.vision_url, model=settings.vision_model, timeout=settings.VLLM_TIMEOUT, circuit_breaker=circuit_vision)
+router_vllm = VLLMClient(base_url=settings.router_url, model=settings.router_model, timeout=settings.VLLM_TIMEOUT, circuit_breaker=circuit_router)
