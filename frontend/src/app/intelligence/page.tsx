@@ -22,6 +22,7 @@ const NAV_LINKS = [
   { href: "/analytics",    label: "Analytics_Vault"     },
   { href: "/hardware",     label: "Orchestration_Node"  },
   { href: "/intelligence", label: "Global_Intelligence" },
+  { href: "/sandbox",      label: "Regulatory_Sandbox"  },
 ];
 
 // ── Demo data ─────────────────────────────────────────────────────────────────
@@ -160,25 +161,37 @@ export default function IntelligencePage() {
     pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
     const particles = new THREE.Points(
       pGeo,
-      new THREE.PointsMaterial({ size: 0.04, color: 0xed1c24, transparent: true, opacity: 0.2 }),
+      new THREE.PointsMaterial({ size: 0.06, color: 0xed1c24, transparent: true, opacity: 0.45 }),
     );
     scene.add(particles);
 
-    // Globe wireframe
+    // Globe wireframe — visible background element
     const globe = new THREE.Mesh(
-      new THREE.SphereGeometry(6, 24, 16),
-      new THREE.MeshBasicMaterial({ color: 0xed1c24, wireframe: true, transparent: true, opacity: 0.04 }),
+      new THREE.SphereGeometry(9, 32, 20),
+      new THREE.MeshBasicMaterial({ color: 0xed1c24, wireframe: true, transparent: true, opacity: 0.18 }),
     );
-    globe.position.set(18, -4, -15);
+    globe.position.set(14, -2, -8);
     scene.add(globe);
 
+    // Inner solid glow
+    const innerGlobe = new THREE.Mesh(
+      new THREE.SphereGeometry(8.6, 32, 20),
+      new THREE.MeshBasicMaterial({ color: 0x200000, transparent: true, opacity: 0.35 }),
+    );
+    innerGlobe.position.copy(globe.position);
+    scene.add(innerGlobe);
+
     camera.position.z = 20;
-    scene.add(new THREE.AmbientLight(0xffffff, 0.05));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.1));
+    const pl = new THREE.PointLight(0xed1c24, 1.2, 60);
+    pl.position.set(10, 5, 5);
+    scene.add(pl);
 
     const animate = () => {
       threeRef.current.animId = requestAnimationFrame(animate);
-      particles.rotation.y += 0.0001;
-      globe.rotation.y += 0.003;
+      particles.rotation.y += 0.0002;
+      globe.rotation.y += 0.004;
+      innerGlobe.rotation.y += 0.004;
       renderer.render(scene, camera);
     };
     animate();
