@@ -30,7 +30,7 @@ services:
   envs:
   - key: VLLM_BASE_URL
     scope: RUN_AND_BUILD_TIME
-    value: "http://165.245.138.52:8000/v1"
+    value: "http://129.212.191.212:8000/v1"
   - key: VLLM_MODEL
     scope: RUN_AND_BUILD_TIME
     value: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
