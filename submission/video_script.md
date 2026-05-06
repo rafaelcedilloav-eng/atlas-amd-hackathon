@@ -17,7 +17,7 @@ _Duración objetivo: 3–4 minutos. Grabar pantalla + narrar en vivo o añadir v
 **Pantalla:** Slide de título / página principal de ATLAS en el browser
 
 > *"Financial document fraud is a $4 trillion global problem. Manual auditing is slow. AI can fix that.*
-> *This is ATLAS — a 4-agent forensic pipeline running on AMD MI300X that audits any financial document in seconds."*
+> *This is ATLAS — a 4-agent forensic pipeline running on AMD MI300X. We fine-tuned a Qwen3-14B model on 13,588 real compliance cases, benchmarked it honestly, and built a system that actually works in its domain."*
 
 **Acción:** Mostrar el dashboard con métricas (documentos auditados, fraudes detectados, tiempo promedio)
 
@@ -71,14 +71,14 @@ _Duración objetivo: 3–4 minutos. Grabar pantalla + narrar en vivo o añadir v
 
 ---
 
-## ESCENA 6 — Stack AMD (3:00 – 3:30)
-**Pantalla:** Página de Configuración del sistema / o slide técnica
+## ESCENA 6 — Benchmarks + AMD (3:00 – 3:30)
+**Pantalla:** Dashboard de resultados (streamlit) o slide de benchmarks
 
-> *"The hardware story: AMD MI300X on AMD Developer Cloud. 192GB HBM3, 5.3 TB/s memory bandwidth.*
-> *vLLM with ROCm. DeepSeek-R1-Distill-Qwen-32B in full FP16.*
-> *One card. No compromises."*
+> *"We benchmarked ATLAS R3 honestly. CUAD contract analysis: 96%. MMLU Business Ethics: 81%. Adversarial robustness: 100% pass rate — zero hallucinations, zero jailbreaks.*
+> *For generic legal tasks outside its training domain? Near random chance. That's what a specialist looks like."*
 
-> *"The ROCm setup was near-identical to CUDA. vLLM's --device rocm flag just worked. That compatibility is underrated."*
+> *"The hardware: AMD MI300X. 192GB HBM3 at 5.3 TB/s. Full bf16 training, no quantization compromise.*
+> *ROCm 7.2 setup was near-identical to CUDA. That compatibility is underrated — and it's why we could run the models the job actually demands."*
 
 ---
 

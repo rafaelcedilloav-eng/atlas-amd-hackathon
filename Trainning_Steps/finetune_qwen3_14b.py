@@ -28,14 +28,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CONFIG = {
-    "model_id": "Qwen/Qwen3-14B",
-    "dataset_path": "/data/atlas_training_dataset.jsonl",
-    "output_dir": "/outputs/r2_qwen3_14b_finetuned",
+    "model_id": "Rafaelcedav/atlas-r2-qwen3-14b",  # R3: continued training desde R2
+    "dataset_path": "/data/atlas_FINAL_v2.jsonl",   # 13,588 registros (todos los batches)
+    "output_dir": "/outputs/r3_qwen3_14b_finetuned",
 
-    "learning_rate": 2e-5,
+    "learning_rate": 1e-5,             # lr mas bajo para continued training (evita catastrofic forgetting)
     "batch_size_per_gpu": 2,
     "gradient_accumulation_steps": 8,   # effective batch = 16
-    "num_epochs": 3,
+    "num_epochs": 2,                    # 2 epochs suficientes en continued training
     "warmup_steps": 100,
     "weight_decay": 0.01,
     "max_grad_norm": 1.0,
@@ -73,8 +73,8 @@ def preprocess_function(examples, tokenizer, max_seq_length):
 
 def main():
     logger.info("=" * 60)
-    logger.info("  ATLAS R2 — Qwen3-14B FullFinetune (single GPU)")
-    logger.info("  AMD MI300X | 8-bit Adam | 6437 examples | 3 epochs")
+    logger.info("  ATLAS R3 — Qwen3-14B ContinuedFinetune (single GPU)")
+    logger.info("  AMD MI300X 192GB | adamw_torch | 13588 examples | 2 epochs")
     logger.info("=" * 60)
 
     if torch.cuda.is_available():
@@ -199,7 +199,7 @@ def main():
     logger.info(f"Final eval loss: {eval_result['eval_loss']:.4f}")
 
     logger.info("=" * 60)
-    logger.info("  ATLAS R2 DONE")
+    logger.info("  ATLAS R3 DONE")
     logger.info(f"  Loss: {result.training_loss:.4f}")
     logger.info(f"  Output: {CONFIG['output_dir']}")
     logger.info("=" * 60)
