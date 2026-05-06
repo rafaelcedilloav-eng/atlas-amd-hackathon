@@ -101,7 +101,7 @@ async def execute_pipeline(pdf_path: str, audit_id: Optional[str] = None) -> Pip
             timestamp=datetime.now().isoformat(),
             agent="reasoning",
             stage="start",
-            message="Razonamiento forense con Qwen3-14B atlas-r2 (Motor 8000)",
+            message="Razonamiento forense con Qwen3-14B atlas-r3 (Motor 8000)",
             progress_pct=45
         ))
 
@@ -201,7 +201,7 @@ async def _handle_atomic_failure(state: PipelineState, error: str, vision=None, 
         audit_id=state.audit_id,
         timestamp=datetime.now().isoformat(),
         agent="orchestrator",
-        stage="failed",
+        stage="error",
         message=f"FALLO CRÍTICO: {error}",
         progress_pct=100
     ))
