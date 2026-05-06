@@ -31,7 +31,7 @@ interface UploadModalProps {
 export function UploadModal({ open, onClose }: UploadModalProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-  const { startUploading, setComplete: setAuditComplete } = useAuditStore();
+  const { setComplete: setAuditComplete } = useAuditStore();
   const [dragging, setDragging] = useState(false);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isRunning, setIsRunning] = useState(false);
