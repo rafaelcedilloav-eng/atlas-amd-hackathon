@@ -56,6 +56,10 @@ app.add_middleware(
 class AnalyzeRequest(BaseModel):
     pdf_path: str
 
+class HumanDecisionRequest(BaseModel):
+    document_id: str
+    decision: str  # APPROVE | REJECT | REQUEST_MORE_INFO
+
 class SandboxRequest(BaseModel):
     operation_description: str
     operation_details: Optional[Dict] = {}
@@ -114,6 +118,30 @@ async def stream_audit_events(audit_id: str):
             "X-Accel-Buffering": "no",
         }
     )
+
+# 📊 Dashboard Endpoints (stats, audit list, result, human decision)
+@app.get("/stats")
+async def get_stats():
+    return {
+        "total_audits": 0,
+        "fraud_detected": 0,
+        "avg_confidence_pct": 0.0,
+        "avg_processing_time_ms": 0.0,
+        "distribution": {}
+    }
+
+@app.get("/audit-list")
+async def get_audit_list(limit: int = 20, search: Optional[str] = None, severity: Optional[str] = None):
+    return {"audits": [], "total": 0}
+
+@app.get("/result/{document_id}")
+async def get_result(document_id: str = PathParam(...)):
+    raise HTTPException(status_code=404, detail="Audit not found")
+
+@app.post("/human_decision")
+async def submit_human_decision(req: HumanDecisionRequest):
+    logger.info(f"Human decision for {req.document_id}: {req.decision}")
+    return {"status": "ok", "document_id": req.document_id, "decision": req.decision}
 
 # 📄 Executive PDF Export
 @app.get("/report/download/{audit_id}")
