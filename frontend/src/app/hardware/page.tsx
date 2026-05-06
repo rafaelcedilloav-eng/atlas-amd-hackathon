@@ -68,7 +68,7 @@ export default function HardwarePage() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const threeRef  = useRef<{ renderer?: THREE.WebGLRenderer; animId?: number; camera?: THREE.PerspectiveCamera }>({});
   const mouseRef  = useRef({ x: 0, y: 0 });
-  const chartRef  = useRef<ChartType<"doughnut"> | null>(null);
+  const chartRef  = useRef<ChartType<"doughnut">>(null);
 
   const [activeAgent, setActiveAgent] = useState<AgentKey | null>(null);
 
@@ -218,7 +218,7 @@ export default function HardwarePage() {
             </h3>
             <div style={{ height: 220 }}>
               <Doughnut
-                ref={chartRef as any}
+                ref={chartRef}
                 data={DONUT_DATA}
                 options={DONUT_OPTIONS}
               />
