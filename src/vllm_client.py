@@ -28,7 +28,7 @@ class VLLMClient:
         self,
         base_url: str,
         model: str,
-        timeout: float = 180.0,  # Reducido a 3 min según recomendación audit
+        timeout: float = 25.0,
         circuit_breaker: Optional[CircuitBreaker] = None
     ):
         self.base_url = base_url.rstrip("/")
@@ -46,7 +46,7 @@ class VLLMClient:
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self.session is None or self.session.closed:
-            timeout = aiohttp.ClientTimeout(total=self.timeout_val, connect=10.0, sock_read=self.timeout_val)
+            timeout = aiohttp.ClientTimeout(total=self.timeout_val, connect=3.0, sock_read=self.timeout_val)
             connector = aiohttp.TCPConnector(limit=100, keepalive_timeout=60)
             self.session = aiohttp.ClientSession(connector=connector, timeout=timeout, headers=self.headers)
         return self.session

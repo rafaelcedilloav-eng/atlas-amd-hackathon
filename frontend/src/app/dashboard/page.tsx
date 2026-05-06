@@ -17,6 +17,7 @@ const NAV_LINKS = [
   { href: "/analytics",    label: "Analytics_Vault"     },
   { href: "/hardware",     label: "Orchestration_Node"  },
   { href: "/intelligence", label: "Global_Intelligence" },
+  { href: "/sandbox",      label: "Regulatory_Sandbox"  },
 ];
 
 const TICKER = [
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const cleanDocs = Math.max(0, total - fraud);
 
   const { activeAuditId, phase, reset: resetAudit } = useAuditStore();
+  const inQueue = phase === "uploading" ? 1 : 0;
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -242,7 +244,9 @@ export default function DashboardPage() {
             <div className="flex gap-6 border-l border-white/10 pl-6">
               <div className="text-center">
                 <div className="text-[7px] text-gray-500 uppercase">In_Queue</div>
-                <div className="text-lg font-black font-mono text-yellow-500">00</div>
+                <div className={`text-lg font-black font-mono ${inQueue > 0 ? "text-yellow-400 animate-pulse" : "text-yellow-500"}`}>
+                  {String(inQueue).padStart(2, "0")}
+                </div>
               </div>
               <div className="text-center">
                 <div className="text-[7px] text-gray-500 uppercase">Batch_Done</div>

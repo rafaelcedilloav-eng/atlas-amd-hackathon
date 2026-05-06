@@ -23,27 +23,27 @@ const AGENTS: Record<AgentKey, {
 }> = {
   vision: {
     name: "Vision_Extractor", role: "OCR & Spatial Mapping",
-    model: "Gemini 1.5 Flash", load: "74%", loadPct: 74,
+    model: "Tesseract 5 + Poppler", load: "74%", loadPct: 74,
     color: "bg-red-600", chartIdx: 0,
     desc: "High-resolution OCR and spatial entity extraction. Maps document Z-layers for forensic proof of tampering.",
   },
   reasoning: {
-    name: "Reasoning_Unit", role: "Logic Engine",
-    model: "DeepSeek-R1", load: "30%", loadPct: 30,
+    name: "Reasoning_Unit", role: "Logic Engine — AMD MI300X",
+    model: "ATLAS R3 (Qwen3-14B)", load: "30%", loadPct: 30,
     color: "bg-blue-600", chartIdx: 1,
-    desc: "Executes deep chain-of-thought to find contradictory clauses and hidden fraud patterns in extracted data.",
+    desc: "Fine-tuned on 13,588 MX+US compliance cases. Executes step-by-step forensic reasoning over LISR, IRC §482, AML, BEPS, CFA ethics.",
   },
   integrity: {
     name: "Integrity_Gate", role: "Security Gate",
-    model: "Heuristics_v2", load: "15%", loadPct: 15,
+    model: "Rule Engine v3 + pgvector", load: "15%", loadPct: 15,
     color: "bg-purple-600", chartIdx: 2,
-    desc: "Validates document integrity hashes and buckets findings into security classes for the decision pipeline.",
+    desc: "Validates document integrity hashes and deduplication. Blacklist lookup via Supabase RLS. Confirms or rejects Reasoning agent output.",
   },
   explainer: {
     name: "Explainer_AI", role: "Report Synthesis",
-    model: "Gemini 1.5 Pro", load: "10%", loadPct: 10,
+    model: "ATLAS R3 (Qwen3-14B)", load: "10%", loadPct: 10,
     color: "bg-gray-600", chartIdx: 3,
-    desc: "Synthesizes complex forensic data into actionable executive summaries for legal and compliance teams.",
+    desc: "Synthesizes forensic chain-of-evidence into executive audit reports. Decision: AUTO_APPROVE / ESCALATE / AWAIT_HUMAN.",
   },
 };
 

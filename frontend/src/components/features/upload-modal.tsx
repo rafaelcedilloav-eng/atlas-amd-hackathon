@@ -83,14 +83,6 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
     setQueue((prev) => prev.filter((i) => i.id !== id));
   };
 
-  const computeSHA256 = async (file: File): Promise<string> => {
-    const buffer = await file.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
-    return Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  };
-
   const handleSubmit = async () => {
     if (isRunning || queue.length === 0) return;
     setIsRunning(true);
@@ -98,29 +90,39 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
 
     const waiting = queue.filter((i) => i.status === "waiting");
 
-    // Compute SHA256 of first file immediately — same algorithm as Python backend
-    // This lets us open SSE BEFORE the upload starts for true real-time streaming
+    // Upload first file → get real audit_id from backend → connect SSE immediately
+    const firstItem = waiting[0];
+    setQueue((prev) =>
+      prev.map((qi) => (qi.id === firstItem.id ? { ...qi, status: "processing" as FileStatus } : qi))
+    );
     try {
-      const firstAuditId = await computeSHA256(waiting[0].file);
-      setAuditComplete(firstAuditId);
-      onClose();
-      setQueue([]);
-    } catch {
-      startUploading(); // fallback: show connecting spinner
+      const firstResult = await atlasApi.uploadFile(firstItem.file);
+      if (firstResult.document_id) {
+        setAuditComplete(firstResult.document_id); // SSE connects with real audit_id
+        onClose();
+      }
+      setQueue((prev) =>
+        prev.map((qi) => (qi.id === firstItem.id ? { ...qi, status: "done" as FileStatus } : qi))
+      );
+    } catch (err) {
+      const msg = (err as Error).message || "Processing failed.";
+      setQueue((prev) =>
+        prev.map((qi) =>
+          qi.id === firstItem.id ? { ...qi, status: "error" as FileStatus, error: msg.slice(0, 70) } : qi
+        )
+      );
     }
 
-    // Upload all files in background — pipeline will emit SSE events live
-    for (const item of waiting) {
+    // Process remaining files
+    for (const item of waiting.slice(1)) {
       setQueue((prev) =>
         prev.map((qi) => (qi.id === item.id ? { ...qi, status: "processing" as FileStatus } : qi))
       );
       try {
-        const result = await atlasApi.uploadFile(item.file);
+        await atlasApi.uploadFile(item.file);
         setQueue((prev) =>
           prev.map((qi) => (qi.id === item.id ? { ...qi, status: "done" as FileStatus } : qi))
         );
-        // Update to final document_id (confirms SHA256 match)
-        if (result.document_id) setAuditComplete(result.document_id);
       } catch (err) {
         const msg = (err as Error).message || "Processing failed.";
         setQueue((prev) =>

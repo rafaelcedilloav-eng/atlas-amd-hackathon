@@ -11,15 +11,17 @@ import asyncio
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+import uuid
+from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Response, Depends, Path as PathParam
+from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File, Response, Depends, Path as PathParam
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from src.orchestrator import execute_pipeline
+from src.utils import generate_audit_id
 from src.schemas import PipelineResult
 from src.db_mock import get_client
 from src.audit_emitter import event_bus
@@ -97,15 +99,23 @@ async def analyze_document(req: AnalyzeRequest):
     return await execute_pipeline(req.pdf_path)
 
 @app.post("/upload")
-async def upload_document(file: UploadFile = File(...)):
-    tmp_path = Path(tempfile.gettempdir()) / f"atlas_{uuid.uuid4()}_{file.filename}"
+async def upload_document(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
+    """Acepta el archivo, devuelve audit_id inmediatamente y corre el pipeline en background."""
     content = await file.read()
+    audit_id = generate_audit_id()
+    tmp_path = Path(tempfile.gettempdir()) / f"atlas_{audit_id}_{file.filename}"
     with open(tmp_path, "wb") as f:
         f.write(content)
-    try:
-        return await execute_pipeline(str(tmp_path))
-    finally:
-        if tmp_path.exists(): tmp_path.unlink()
+
+    async def _run_and_cleanup():
+        try:
+            await execute_pipeline(str(tmp_path), audit_id=audit_id)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+    background_tasks.add_task(_run_and_cleanup)
+    return {"document_id": audit_id, "status": "processing"}
 
 # 📡 Real-time X-Ray (SSE)
 @app.get("/stream/{audit_id}")
