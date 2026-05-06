@@ -14,7 +14,7 @@ from pathlib import Path
 import uuid
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File, Response, Depends, Path as PathParam
+from fastapi import FastAPI, HTTPException, UploadFile, File, Response, Depends, Path as PathParam
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -99,7 +99,7 @@ async def analyze_document(req: AnalyzeRequest):
     return await execute_pipeline(req.pdf_path)
 
 @app.post("/upload")
-async def upload_document(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
+async def upload_document(file: UploadFile = File(...)):
     """Acepta el archivo, devuelve audit_id inmediatamente y corre el pipeline en background."""
     content = await file.read()
     audit_id = generate_audit_id()
@@ -114,7 +114,7 @@ async def upload_document(file: UploadFile = File(...), background_tasks: Backgr
             if tmp_path.exists():
                 tmp_path.unlink()
 
-    background_tasks.add_task(_run_and_cleanup)
+    asyncio.create_task(_run_and_cleanup())
     return {"document_id": audit_id, "status": "processing"}
 
 # 📡 Real-time X-Ray (SSE)
