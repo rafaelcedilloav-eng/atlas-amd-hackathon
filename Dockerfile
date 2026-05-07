@@ -16,6 +16,7 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app
 
 COPY src/ ./src/
+COPY config/ ./config/
 
 EXPOSE 8080
 
