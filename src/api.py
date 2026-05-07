@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 from src.orchestrator import execute_pipeline
 from src.utils import generate_audit_id
 from src.schemas import PipelineResult
-from src.db_mock import get_client
+from src.db_mock import get_client, get_audit_result, get_all_audits, get_stats as _get_stats
 from src.audit_emitter import event_bus
 from src.config import settings
 from src.report_generator import AtlasReportGenerator
@@ -122,21 +122,19 @@ async def stream_audit_events(audit_id: str):
 # 📊 Dashboard Endpoints (stats, audit list, result, human decision)
 @app.get("/stats")
 async def get_stats():
-    return {
-        "total_audits": 0,
-        "fraud_detected": 0,
-        "avg_confidence_pct": 0.0,
-        "avg_processing_time_ms": 0.0,
-        "distribution": {}
-    }
+    return _get_stats()
 
 @app.get("/audit-list")
 async def get_audit_list(limit: int = 20, search: Optional[str] = None, severity: Optional[str] = None):
-    return {"audits": [], "total": 0}
+    audits = get_all_audits(limit=limit, search=search, severity=severity)
+    return {"audits": audits, "total": len(audits)}
 
 @app.get("/result/{document_id}")
 async def get_result(document_id: str = PathParam(...)):
-    raise HTTPException(status_code=404, detail="Audit not found")
+    result = get_audit_result(document_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Audit not found")
+    return result
 
 @app.post("/human_decision")
 async def submit_human_decision(req: HumanDecisionRequest):

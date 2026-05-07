@@ -43,9 +43,22 @@ DOCUMENTO: {vision_output.document_type}
 --- HALLAZGOS DE COMPLIANCE ---
 {compliance_json}
 
-INSTRUCCIÓN:
-Como auditor forense senior, analiza estos datos buscando errores matemáticos, RFCs inválidos o términos inusuales.
-Responde estrictamente en JSON."""
+INSTRUCCIÓN: Analiza los campos buscando errores matemáticos, RFCs inválidos o términos inusuales.
+Responde ÚNICAMENTE con JSON válido siguiendo EXACTAMENTE este schema:
+
+{{
+  "trap_detected": "descripción de la anomalía principal",
+  "trap_id": "T-XXXX",
+  "trap_severity": "LOW|MEDIUM|HIGH|CRITICAL",
+  "confidence": 0.85,
+  "reasoning_valid": true,
+  "assumptions": ["supuesto 1"],
+  "reasoning_chain": [
+    {{"step": 1, "description": "Extracción de campos clave", "evidence": "campos detectados por OCR", "conclusion": "datos extraídos correctamente"}},
+    {{"step": 2, "description": "Verificación aritmética", "evidence": "revisión de montos y totales", "conclusion": "hallazgo matemático"}},
+    {{"step": 3, "description": "Evaluación de riesgo fiscal", "evidence": "patrones detectados", "conclusion": "nivel de riesgo determinado"}}
+  ]
+}}"""
 
         try:
             # Uso del cliente centralizado con circuit breaker

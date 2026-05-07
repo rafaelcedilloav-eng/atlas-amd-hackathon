@@ -29,7 +29,20 @@ class ExplainerAgent:
 
         prompt = f"""ERES UN AUDITOR FORENSE ESTRATÉGICO.
 CONTEXTO: {json.dumps(context)}
-Genera un reporte ejecutivo JSON con inteligencia de mercado."""
+
+Responde ÚNICAMENTE con JSON válido siguiendo EXACTAMENTE este schema:
+{{
+  "explanation": {{
+    "title": "Título del reporte forense",
+    "summary": "Resumen ejecutivo de 2-3 oraciones",
+    "detailed_explanation": "Explicación técnica detallada",
+    "why_its_a_trap": "Por qué esto es una anomalía",
+    "what_to_do": ["Acción 1", "Acción 2", "Acción 3"],
+    "financial_impact": "Impacto financiero estimado"
+  }},
+  "next_action": "AWAIT_HUMAN_DECISION",
+  "markdown_report": "# Reporte\\n\\nContenido del reporte"
+}}"""
 
         try:
             response = await core_vllm.call_llm(
