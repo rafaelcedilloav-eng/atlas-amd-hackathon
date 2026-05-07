@@ -126,7 +126,29 @@ async def get_stats():
 
 @app.get("/audit-list")
 async def get_audit_list(limit: int = 20, search: Optional[str] = None, severity: Optional[str] = None):
-    audits = get_all_audits(limit=limit, search=search, severity=severity)
+    raw = get_all_audits(limit=limit, search=search, severity=severity)
+    audits = []
+    for r in raw:
+        reasoning = r.get("reasoning") or {}
+        vision    = r.get("vision") or {}
+        expl_out  = r.get("explanation") or {}
+        fields    = vision.get("extracted_fields") or {}
+        vendor_f  = fields.get("vendor_name") or fields.get("vendor") or {}
+        vendor    = (vendor_f.get("value") if isinstance(vendor_f, dict) else vendor_f) or r.get("document_id", "")[:8]
+        cb        = expl_out.get("confidence_breakdown") or {}
+        audits.append({
+            "doc_id":               r.get("document_id"),
+            "vendor_name":          str(vendor) if vendor else None,
+            "fraud_type":           reasoning.get("trap_detected"),
+            "fraud_classification": reasoning.get("trap_detected"),
+            "severity":             reasoning.get("trap_severity"),
+            "confidence_score":     cb.get("overall_confidence"),
+            "final_status":         r.get("status", "COMPLETE"),
+            "recommended_action":   expl_out.get("next_action", "AWAIT_HUMAN_DECISION"),
+            "is_duplicate":         False,
+            "is_blacklisted":       False,
+            "created_at":           r.get("timestamp", datetime.now().isoformat()),
+        })
     return {"audits": audits, "total": len(audits)}
 
 @app.get("/result/{document_id}")
@@ -134,7 +156,13 @@ async def get_result(document_id: str = PathParam(...)):
     result = get_audit_result(document_id)
     if not result:
         raise HTTPException(status_code=404, detail="Audit not found")
-    return result
+    return {
+        "document_id":   result.get("document_id"),
+        "status":        result.get("status", "COMPLETE"),
+        "result_json":   result,
+        "human_decision": None,
+        "created_at":    result.get("timestamp", datetime.now().isoformat()),
+    }
 
 @app.post("/human_decision")
 async def submit_human_decision(req: HumanDecisionRequest):
