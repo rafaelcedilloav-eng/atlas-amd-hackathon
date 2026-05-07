@@ -182,17 +182,35 @@ Responde ÚNICAMENTE con JSON válido siguiendo EXACTAMENTE este schema:
                 pass
         raise ValueError("No se encontró JSON válido en la respuesta del modelo")
 
-    def _validate_sandbox_schema(self, data: Dict) -> None:
-        if "output" not in data:
-            raise ValueError("Respuesta sandbox sin campo 'output'")
-        output = data.get("output", {})
-        # Rellenar campos faltantes con defaults en lugar de fallar
-        output.setdefault("overall_risk_score", 60.0)
-        output.setdefault("recommendation", "REVIEW_REQUIRED")
-        output.setdefault("confidence", "medium")
-        output.setdefault("source_status", "official")
-        data.setdefault("id", f"sandbox-{uuid.uuid4().hex[:8]}")
-        data.setdefault("scenario_type", "operacion_propuesta")
+    def _build_result_from_text(self, raw: str, description: str) -> Dict:
+        """Construye respuesta válida desde texto libre del modelo."""
+        risk = 65.0
+        for word in ("crítico", "critical", "alto", "high", "severo"):
+            if word in raw.lower():
+                risk = 85.0
+                break
+        for word in ("bajo", "low", "mínimo", "minimal"):
+            if word in raw.lower():
+                risk = 35.0
+                break
+        summary = raw[:500].strip() if raw else f"Análisis de: {description}"
+        return {
+            "id": f"sandbox-{uuid.uuid4().hex[:8]}",
+            "scenario_type": "analisis_regulatorio",
+            "output": {
+                "overall_risk_score": risk,
+                "recommendation": "REVIEW_REQUIRED" if risk > 50 else "PROCEED_WITH_CAUTION",
+                "executive_summary": summary,
+                "confidence": "medium",
+                "source_status": "official",
+            },
+            "simulation_engine": {
+                "regulatory_heat_map": [],
+                "timeline": [],
+                "compound_risks": [],
+                "alternative_scenarios": [],
+            },
+        }
 
     async def analyze_sandbox(
         self,
@@ -201,24 +219,20 @@ Responde ÚNICAMENTE con JSON válido siguiendo EXACTAMENTE este schema:
         proposed_date: Optional[str] = None,
         mode: str = "sandbox",
     ) -> Dict:
-        """
-        Simula el impacto regulatorio de una operación propuesta ANTES de ejecutarla.
-        Usa Qwen3-14B fine-tuned (atlas-r2-qwen3-14b) vía core_vllm.
-        mode: "sandbox" | "red_team"
-        """
         start_time = time.time()
-        logger.info(f"[Sandbox] Iniciando simulación | mode={mode} | date={proposed_date}")
+        logger.info(f"[Sandbox] Iniciando | mode={mode}")
 
-        system_prompt = self._load_sandbox_prompt()
+        try:
+            system_prompt = self._load_sandbox_prompt()
+        except Exception as e:
+            logger.error(f"[Sandbox] No se pudo cargar system prompt: {e}")
+            system_prompt = "Eres un auditor regulatorio. Responde en JSON."
+
         if mode == "red_team":
-            system_prompt += (
-                "\n\n## RED TEAM MODE ACTIVADO\n"
-                "Simula la operación desde la perspectiva de un auditor adversarial. "
-                "Muestra exactamente dónde y cuándo SAT/IRS/SEC/FinCEN detectarían la operación. "
-                "Incluye probabilidad de auditoría basada en históricos del Golden Dataset v3.1."
-            )
+            system_prompt += "\n\nRED TEAM: Simula desde perspectiva adversarial. Muestra cuándo SAT/IRS detectarían la operación."
 
         user_prompt = self._build_sandbox_prompt(operation_description, operation_details, proposed_date)
+        raw = None
 
         try:
             raw = await core_vllm.call_llm(
@@ -227,11 +241,31 @@ Responde ÚNICAMENTE con JSON válido siguiendo EXACTAMENTE este schema:
                 max_tokens=1024,
                 temperature=0.3,
             )
-            result = self._extract_json_from_response(raw)
-            self._validate_sandbox_schema(result)
+            logger.info(f"[Sandbox] Respuesta recibida ({len(raw)} chars): {raw[:200]}")
         except Exception as e:
-            logger.warning(f"[Sandbox] LLM error, usando demo fallback: {e}")
+            logger.error(f"[Sandbox] vLLM no disponible: {e}")
             result = self._sandbox_demo_fallback()
+            result.setdefault("id", f"sandbox-{uuid.uuid4().hex[:8]}")
+            result["mode"] = mode
+            result["metadata"] = {"version": "1.0", "demo_mode": True, "latency_seconds": round(time.time() - start_time, 2), "mode": mode, "timestamp": datetime.utcnow().isoformat(), "simulated_by": "demo-fallback"}
+            return result
+
+        # Si el modelo respondió, intentamos parsear JSON; si no, usamos el texto
+        try:
+            result = self._extract_json_from_response(raw)
+            # Rellenar campos opcionales faltantes
+            result.setdefault("id", f"sandbox-{uuid.uuid4().hex[:8]}")
+            result.setdefault("scenario_type", "analisis_regulatorio")
+            output = result.setdefault("output", {})
+            output.setdefault("overall_risk_score", 65.0)
+            output.setdefault("recommendation", "REVIEW_REQUIRED")
+            output.setdefault("executive_summary", raw[:300])
+            output.setdefault("confidence", "medium")
+            output.setdefault("source_status", "official")
+            logger.info(f"[Sandbox] JSON parseado OK — risk={output.get('overall_risk_score')}")
+        except Exception as e:
+            logger.warning(f"[Sandbox] JSON parse falló ({e}), usando texto del modelo")
+            result = self._build_result_from_text(raw, operation_description)
 
         result.setdefault("id", f"sandbox-{uuid.uuid4().hex[:8]}")
         result["mode"] = mode
