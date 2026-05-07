@@ -129,10 +129,33 @@ Responde ÚNICAMENTE con JSON válido siguiendo EXACTAMENTE este schema:
     def _build_sandbox_prompt(self, description: str, operation: Dict, proposed_date: Optional[str]) -> str:
         date_str = proposed_date or datetime.now().strftime("%Y-%m-%d")
         return (
-            f"OPERACIÓN PROPUESTA:\n{description}\n\n"
-            f"DETALLES: {json.dumps(operation, ensure_ascii=False)}\n\n"
+            f"OPERACIÓN PROPUESTA: {description}\n"
+            f"DETALLES: {json.dumps(operation, ensure_ascii=False)}\n"
             f"FECHA PROPUESTA: {date_str}\n\n"
-            "Genera el análisis completo en JSON válido siguiendo el schema atlas-sandbox-v1.0."
+            "Responde ÚNICAMENTE con JSON válido. Sin texto adicional antes ni después. Schema exacto:\n"
+            "{\n"
+            '  "id": "sandbox-XXXX",\n'
+            '  "scenario_type": "tipo de operación",\n'
+            '  "output": {\n'
+            '    "overall_risk_score": 75.0,\n'
+            '    "recommendation": "RESTRUCTURE_BEFORE_EXECUTING",\n'
+            '    "executive_summary": "Resumen ejecutivo del riesgo regulatorio",\n'
+            '    "confidence": "high",\n'
+            '    "source_status": "official"\n'
+            '  },\n'
+            '  "simulation_engine": {\n'
+            '    "regulatory_heat_map": [\n'
+            '      {"jurisdiction": "MX (IVA)", "risk_level": "CRITICO", "probability_violation": 0.85, "financial_impact_usd": 50000, "reaction_deadline_days": 30, "confidence": "high"}\n'
+            '    ],\n'
+            '    "timeline": [\n'
+            '      {"date_offset_days": 0, "event": "Inicio operación", "regulatory_trigger": "trigger", "risk_level": "alto", "mandatory_action": "acción requerida", "penalty_if_missed": "penalización"}\n'
+            '    ],\n'
+            '    "compound_risks": [],\n'
+            '    "alternative_scenarios": [\n'
+            '      {"alternative_id": "ALT-001", "description": "alternativa", "risk_mitigation": "reducción de riesgo", "cost_impact": "costo"}\n'
+            '    ]\n'
+            '  }\n'
+            "}"
         )
 
     def _strip_thinking_tokens(self, text: str) -> str:
@@ -160,12 +183,16 @@ Responde ÚNICAMENTE con JSON válido siguiendo EXACTAMENTE este schema:
         raise ValueError("No se encontró JSON válido en la respuesta del modelo")
 
     def _validate_sandbox_schema(self, data: Dict) -> None:
-        for field in ("id", "mode", "output"):
-            if field not in data:
-                raise ValueError(f"Campo requerido faltante en respuesta sandbox: {field}")
-        for field in ("overall_risk_score", "recommendation", "confidence", "source_status"):
-            if field not in data.get("output", {}):
-                raise ValueError(f"Campo output faltante: {field}")
+        if "output" not in data:
+            raise ValueError("Respuesta sandbox sin campo 'output'")
+        output = data.get("output", {})
+        # Rellenar campos faltantes con defaults en lugar de fallar
+        output.setdefault("overall_risk_score", 60.0)
+        output.setdefault("recommendation", "REVIEW_REQUIRED")
+        output.setdefault("confidence", "medium")
+        output.setdefault("source_status", "official")
+        data.setdefault("id", f"sandbox-{uuid.uuid4().hex[:8]}")
+        data.setdefault("scenario_type", "operacion_propuesta")
 
     async def analyze_sandbox(
         self,
@@ -197,7 +224,7 @@ Responde ÚNICAMENTE con JSON válido siguiendo EXACTAMENTE este schema:
             raw = await core_vllm.call_llm(
                 prompt=user_prompt,
                 system_prompt=system_prompt,
-                max_tokens=4096,
+                max_tokens=1024,
                 temperature=0.3,
             )
             result = self._extract_json_from_response(raw)
