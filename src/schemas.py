@@ -35,7 +35,7 @@ class ReasoningStep(BaseModel):
 
 class ReasoningOutput(BaseModel):
     document_id: str
-    trap_detected: Literal["Math Error", "Missing Field", "Inconsistency", "Unclear Value", "No Trap"]
+    trap_detected: str  # free text from model; normalized by agent before storage
     trap_id: str
     reasoning_chain: Annotated[List[ReasoningStep], Field(min_length=3)]
     trap_severity: Literal["CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE"]
