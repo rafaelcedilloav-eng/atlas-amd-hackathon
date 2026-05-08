@@ -199,7 +199,7 @@ async def download_audit_report(audit_id: str):
         raise HTTPException(status_code=500, detail="Error al generar reporte PDF")
 
 # ─── Regulatory Sandbox ──────────────────────────────────────────────────────
-@app.post("/api/v1/sandbox/simulate")
+@app.post("/v1/sandbox/simulate")
 async def sandbox_simulate(request: SandboxRequest):
     """
     Simula el impacto regulatorio de una operación propuesta ANTES de ejecutarla.
