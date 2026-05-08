@@ -64,7 +64,7 @@ Responde ÚNICAMENTE con JSON válido siguiendo EXACTAMENTE este schema:
             # Uso del cliente centralizado con circuit breaker
             response = await core_vllm.call_llm(
                 prompt, 
-                system_prompt="Eres un Auditor Forense Senior. Tu especialidad es detectar anomalías financieras. Modelo: atlas-r2-qwen3-14b (AMD MI300X)."
+                system_prompt="Eres un Auditor Forense Senior. Tu especialidad es detectar anomalías financieras. Modelo: atlas-r3-qwen3-14b (AMD MI300X)."
             )
 
             # Parsear JSON
@@ -271,7 +271,7 @@ Responde ÚNICAMENTE con JSON válido siguiendo EXACTAMENTE este schema:
         result["mode"] = mode
         result["metadata"] = {
             "version": "1.0",
-            "simulated_by": "Atlas-Sandbox/Qwen3-14B-atlas-r2",
+            "simulated_by": "Atlas-Sandbox/Qwen3-14B-atlas-r3",
             "latency_seconds": round(time.time() - start_time, 2),
             "mode": mode,
             "timestamp": datetime.utcnow().isoformat(),
