@@ -219,7 +219,7 @@ export default function SandboxPage() {
           proposed_date: form.date,
           mode: form.mode,
         }),
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(60_000),
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
