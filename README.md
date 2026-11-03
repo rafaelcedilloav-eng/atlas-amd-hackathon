@@ -3,7 +3,6 @@
 
 A 4-agent AI forensic pipeline that detects fraud, tax violations, and compliance breaches in financial documents. Powered by a fine-tuned Qwen3-14B (ATLAS R3) trained on AMD MI300X with ROCm.
 
-**Live demo:** https://atlas-amd-qs5g4.ondigitalocean.app
 **Model:** [Rafaelcedav/atlas-r3-qwen3-14b](https://huggingface.co/Rafaelcedav/atlas-r3-qwen3-14b)
 
 ---
